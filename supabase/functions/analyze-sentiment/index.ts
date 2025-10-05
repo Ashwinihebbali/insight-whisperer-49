@@ -19,9 +19,14 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
-    const results = [];
+    // Batch comments for analysis (10 at a time to avoid rate limits)
+    const batchSize = 10;
+    const results: { comment: string; sentiment: string }[] = [];
     
-    for (const comment of comments) {
+    for (let i = 0; i < comments.length; i += batchSize) {
+      const batch = comments.slice(i, i + batchSize);
+      const commentsText = batch.map((c: string, idx: number) => `${idx + 1}. ${c}`).join('\n');
+      
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -33,29 +38,58 @@ serve(async (req) => {
           messages: [
             {
               role: "system",
-              content: "You are a sentiment analysis expert. Analyze the sentiment of comments and respond with ONLY one word: positive, negative, or neutral. No explanation needed."
+              content: "You are a sentiment analysis expert. Analyze the sentiment of each comment and respond with a JSON array of sentiments. Each sentiment must be exactly 'positive', 'negative', or 'neutral'. Format: [{\"sentiment\": \"positive\"}, {\"sentiment\": \"negative\"}]"
             },
             {
               role: "user",
-              content: `Analyze this comment: "${comment}"`
+              content: `Analyze these comments:\n${commentsText}`
             }
           ],
         }),
       });
 
       if (!response.ok) {
-        console.error(`AI API error: ${response.status}`);
+        const errorText = await response.text();
+        console.error(`AI API error ${response.status}:`, errorText);
+        
+        if (response.status === 429) {
+          throw new Error("Rate limit exceeded. Please try again in a moment or upload fewer comments.");
+        }
+        if (response.status === 402) {
+          throw new Error("AI usage limit reached. Please add credits to continue.");
+        }
         throw new Error(`AI API error: ${response.status}`);
       }
 
       const data = await response.json();
-      const sentiment = data.choices[0].message.content.toLowerCase().trim();
+      const content = data.choices[0].message.content.trim();
       
-      results.push({
-        comment,
-        sentiment: sentiment.includes('positive') ? 'positive' : 
-                  sentiment.includes('negative') ? 'negative' : 'neutral'
+      // Parse JSON response
+      let sentiments;
+      try {
+        // Extract JSON if wrapped in markdown code blocks
+        const jsonMatch = content.match(/\[[\s\S]*\]/);
+        const jsonStr = jsonMatch ? jsonMatch[0] : content;
+        sentiments = JSON.parse(jsonStr);
+      } catch (e) {
+        console.error("Failed to parse AI response:", content);
+        // Fallback: treat all as neutral
+        sentiments = batch.map(() => ({ sentiment: "neutral" }));
+      }
+      
+      // Map results back to comments
+      batch.forEach((comment: string, idx: number) => {
+        const sentiment = sentiments[idx]?.sentiment?.toLowerCase() || 'neutral';
+        results.push({
+          comment,
+          sentiment: ['positive', 'negative', 'neutral'].includes(sentiment) ? sentiment : 'neutral'
+        });
       });
+      
+      // Add small delay between batches to avoid rate limiting
+      if (i + batchSize < comments.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
 
     console.log(`Analysis complete: ${results.length} results`);

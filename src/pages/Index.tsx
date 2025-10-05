@@ -29,7 +29,10 @@ const Index = () => {
         body: { comments },
       });
 
-      if (error) throw error;
+      if (error) {
+        const errorMessage = error.message || "Unknown error occurred";
+        throw new Error(errorMessage);
+      }
 
       setResults(data.results);
       
@@ -39,9 +42,10 @@ const Index = () => {
       });
     } catch (error) {
       console.error("Analysis error:", error);
+      const errorMessage = error instanceof Error ? error.message : "There was an error analyzing your data";
       toast({
         title: "Analysis Failed",
-        description: "There was an error analyzing your data",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
