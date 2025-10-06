@@ -22,6 +22,8 @@ const Chatbot = () => {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const { toast } = useToast();
 
   const sendMessage = async () => {
@@ -29,29 +31,62 @@ const Chatbot = () => {
 
     const userMessage: Message = { role: "user", content: input };
     setMessages(prev => [...prev, userMessage]);
+    const messageText = input;
     setInput("");
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke("chatbot", {
-        body: {
-          message: input,
-          history: messages,
-        },
-      });
+      if (apiKey) {
+        // Use local OpenAI API with user's key
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "You are a helpful assistant for sentiment analysis. Help users understand their results and answer questions about sentiment analysis." },
+              ...messages.map(m => ({ role: m.role, content: m.content })),
+              { role: "user", content: messageText }
+            ],
+          }),
+        });
 
-      if (error) throw error;
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || "OpenAI API error");
+        }
 
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: data.reply,
-      };
-      setMessages(prev => [...prev, assistantMessage]);
+        const data = await response.json();
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: data.choices[0].message.content,
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+      } else {
+        // Use cloud function
+        const { data, error } = await supabase.functions.invoke("chatbot", {
+          body: {
+            message: messageText,
+            history: messages,
+          },
+        });
+
+        if (error) throw error;
+
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: data.reply,
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+      }
     } catch (error) {
       console.error("Chatbot error:", error);
       toast({
         title: "Error",
-        description: "Failed to get response from chatbot",
+        description: apiKey ? "Failed to connect to OpenAI. Check your API key." : "Failed to get response from chatbot",
         variant: "destructive",
       });
     } finally {
@@ -85,9 +120,32 @@ const Chatbot = () => {
             className="fixed bottom-24 right-6 w-96 h-[500px] bg-card rounded-2xl shadow-2xl z-50 flex flex-col"
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-primary to-accent p-4 rounded-t-2xl">
+            <div className="bg-gradient-to-r from-primary to-accent p-4 rounded-t-2xl flex items-center justify-between">
               <h3 className="text-lg font-semibold text-primary-foreground">AI Assistant</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowApiKeyInput(!showApiKeyInput)}
+                className="hover:bg-primary-foreground/10 text-primary-foreground text-xs"
+              >
+                {apiKey ? "🔑" : "Add Key"}
+              </Button>
             </div>
+
+            {showApiKeyInput && (
+              <div className="p-4 bg-muted/50 border-b">
+                <input
+                  type="password"
+                  placeholder="Enter OpenAI API Key (optional)"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Add your OpenAI API key to use your own quota
+                </p>
+              </div>
+            )}
 
             {/* Messages */}
             <ScrollArea className="flex-1 p-4">

@@ -5,13 +5,16 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
 interface FileUploadProps {
-  onAnalyze: (comments: string[]) => void;
+  onAnalyzeLocal: (comments: string[]) => void;
+  onAnalyzeCloud: (comments: string[]) => void;
   isAnalyzing: boolean;
+  analysisProgress: { current: number; total: number };
 }
 
-const FileUpload = ({ onAnalyze, isAnalyzing }: FileUploadProps) => {
+const FileUpload = ({ onAnalyzeLocal, onAnalyzeCloud, isAnalyzing, analysisProgress }: FileUploadProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [useLocalMode, setUseLocalMode] = useState(true);
   const { toast } = useToast();
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -75,7 +78,11 @@ const FileUpload = ({ onAnalyze, isAnalyzing }: FileUploadProps) => {
         });
         return;
       }
-      onAnalyze(comments);
+      if (useLocalMode) {
+        onAnalyzeLocal(comments);
+      } else {
+        onAnalyzeCloud(comments);
+      }
     } catch (error) {
       toast({
         title: "Error parsing file",
@@ -94,6 +101,27 @@ const FileUpload = ({ onAnalyze, isAnalyzing }: FileUploadProps) => {
           className="bg-card rounded-2xl p-8 shadow-lg"
         >
           <h2 className="text-3xl font-bold mb-6 text-center">Upload Your Data</h2>
+          
+          {/* Mode Toggle */}
+          <div className="mb-6 flex items-center justify-center gap-4">
+            <span className={`text-sm font-medium ${useLocalMode ? 'text-primary' : 'text-muted-foreground'}`}>
+              Local (Fast)
+            </span>
+            <button
+              onClick={() => setUseLocalMode(!useLocalMode)}
+              className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+              style={{ backgroundColor: useLocalMode ? 'hsl(var(--primary))' : 'hsl(var(--muted))' }}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  useLocalMode ? 'translate-x-1' : 'translate-x-6'
+                }`}
+              />
+            </button>
+            <span className={`text-sm font-medium ${!useLocalMode ? 'text-primary' : 'text-muted-foreground'}`}>
+              Cloud (AI)
+            </span>
+          </div>
           
           <motion.div
             onDragOver={handleDragOver}
@@ -152,7 +180,18 @@ const FileUpload = ({ onAnalyze, isAnalyzing }: FileUploadProps) => {
             disabled={!file || isAnalyzing}
             className="w-full mt-6 bg-gradient-to-r from-primary to-accent hover:opacity-90 text-lg py-6"
           >
-            {isAnalyzing ? "Analyzing..." : "Analyze Sentiment"}
+            {isAnalyzing ? (
+              <>
+                Analyzing...
+                {analysisProgress.total > 0 && (
+                  <span className="ml-2">
+                    {analysisProgress.current}/{analysisProgress.total}
+                  </span>
+                )}
+              </>
+            ) : (
+              "Analyze Sentiment"
+            )}
           </Button>
         </motion.div>
       </div>

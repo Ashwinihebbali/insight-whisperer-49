@@ -5,6 +5,7 @@ import Dashboard from "@/components/Dashboard";
 import Chatbot from "@/components/Chatbot";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { analyzeSentimentLocal } from "@/utils/localSentimentAnalyzer";
 
 interface SentimentResult {
   comment: string;
@@ -14,14 +15,49 @@ interface SentimentResult {
 const Index = () => {
   const [results, setResults] = useState<SentimentResult[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState({ current: 0, total: 0 });
   const { toast } = useToast();
 
-  const handleAnalyze = async (comments: string[]) => {
+  const handleAnalyzeLocal = async (comments: string[]) => {
+    setIsAnalyzing(true);
+    setAnalysisProgress({ current: 0, total: comments.length });
+    
+    try {
+      toast({
+        title: "Starting Local Analysis",
+        description: `Analyzing ${comments.length} comments in your browser...`,
+      });
+
+      const results = await analyzeSentimentLocal(comments, (current, total) => {
+        setAnalysisProgress({ current, total });
+      });
+
+      setResults(results);
+      
+      toast({
+        title: "Analysis Complete!",
+        description: `Successfully analyzed ${results.length} comments`,
+      });
+    } catch (error) {
+      console.error("Analysis error:", error);
+      const errorMessage = error instanceof Error ? error.message : "There was an error analyzing your data";
+      toast({
+        title: "Analysis Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+      setAnalysisProgress({ current: 0, total: 0 });
+    }
+  };
+
+  const handleAnalyzeCloud = async (comments: string[]) => {
     setIsAnalyzing(true);
     
     try {
       toast({
-        title: "Starting Analysis",
+        title: "Starting Cloud Analysis",
         description: `Analyzing ${comments.length} comments...`,
       });
 
@@ -56,7 +92,12 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Hero />
-      <FileUpload onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
+      <FileUpload 
+        onAnalyzeLocal={handleAnalyzeLocal}
+        onAnalyzeCloud={handleAnalyzeCloud}
+        isAnalyzing={isAnalyzing}
+        analysisProgress={analysisProgress}
+      />
       {results.length > 0 && <Dashboard results={results} />}
       <Chatbot />
     </div>
