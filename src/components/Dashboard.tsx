@@ -4,6 +4,10 @@ import ReactWordcloud from "react-wordcloud";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
+import { utils, write } from "xlsx";
+import { useToast } from "@/hooks/use-toast";
 
 interface SentimentResult {
   comment: string;
@@ -21,10 +25,75 @@ const COLORS = {
 };
 
 const Dashboard = ({ results }: DashboardProps) => {
+  const { toast } = useToast();
+
   const sentimentCounts = {
     positive: results.filter(r => r.sentiment === "positive").length,
     negative: results.filter(r => r.sentiment === "negative").length,
     neutral: results.filter(r => r.sentiment === "neutral").length,
+  };
+
+  const downloadODF = () => {
+    try {
+      // Prepare data for export
+      const exportData = [
+        ["Comment", "Sentiment", "Timestamp"],
+        ...results.map(result => [
+          result.comment,
+          result.sentiment.charAt(0).toUpperCase() + result.sentiment.slice(1),
+          new Date().toLocaleString()
+        ])
+      ];
+
+      // Add summary sheet data
+      const summaryData = [
+        ["Sentiment Analysis Summary"],
+        [""],
+        ["Sentiment Type", "Count", "Percentage"],
+        ["Positive", sentimentCounts.positive, `${((sentimentCounts.positive / results.length) * 100).toFixed(1)}%`],
+        ["Negative", sentimentCounts.negative, `${((sentimentCounts.negative / results.length) * 100).toFixed(1)}%`],
+        ["Neutral", sentimentCounts.neutral, `${((sentimentCounts.neutral / results.length) * 100).toFixed(1)}%`],
+        [""],
+        ["Total Comments", results.length, "100%"]
+      ];
+
+      // Create workbook with multiple sheets
+      const wb = utils.book_new();
+      
+      // Add summary sheet
+      const summaryWs = utils.aoa_to_sheet(summaryData);
+      utils.book_append_sheet(wb, summaryWs, "Summary");
+      
+      // Add detailed results sheet
+      const detailsWs = utils.aoa_to_sheet(exportData);
+      utils.book_append_sheet(wb, detailsWs, "Detailed Results");
+
+      // Generate ODF (.ods) file
+      const wbout = write(wb, { bookType: "ods", type: "array" });
+      const blob = new Blob([wbout], { type: "application/vnd.oasis.opendocument.spreadsheet" });
+      
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `sentiment-analysis-${new Date().toISOString().split('T')[0]}.ods`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Download Complete",
+        description: "Your sentiment analysis has been exported to ODF format",
+      });
+    } catch (error) {
+      console.error("Export error:", error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export data. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const pieData = [
@@ -64,9 +133,19 @@ const Dashboard = ({ results }: DashboardProps) => {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
         >
-          <h2 className="text-4xl font-bold mb-8 text-center bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            Analysis Dashboard
-          </h2>
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Analysis Dashboard
+            </h2>
+            <Button
+              onClick={downloadODF}
+              className="bg-gradient-to-r from-primary to-accent hover:opacity-90"
+              size="lg"
+            >
+              <Download className="mr-2 h-5 w-5" />
+              Download ODF
+            </Button>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             {/* Pie Chart */}
