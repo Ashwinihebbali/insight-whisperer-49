@@ -6,7 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
-import { utils, write } from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { useToast } from "@/hooks/use-toast";
 
 interface SentimentResult {
@@ -33,58 +34,68 @@ const Dashboard = ({ results }: DashboardProps) => {
     neutral: results.filter(r => r.sentiment === "neutral").length,
   };
 
-  const downloadODF = () => {
+  const downloadPDF = () => {
     try {
-      // Prepare data for export
-      const exportData = [
-        ["Comment", "Sentiment", "Timestamp"],
-        ...results.map(result => [
-          result.comment,
-          result.sentiment.charAt(0).toUpperCase() + result.sentiment.slice(1),
-          new Date().toLocaleString()
-        ])
-      ];
-
-      // Add summary sheet data
+      const doc = new jsPDF();
+      const date = new Date().toLocaleDateString();
+      
+      // Title
+      doc.setFontSize(20);
+      doc.text("Sentiment Analysis Report", 14, 20);
+      
+      // Date
+      doc.setFontSize(10);
+      doc.text(`Generated on: ${date}`, 14, 28);
+      
+      // Summary Section
+      doc.setFontSize(14);
+      doc.text("Summary Statistics", 14, 40);
+      
       const summaryData = [
-        ["Sentiment Analysis Summary"],
-        [""],
-        ["Sentiment Type", "Count", "Percentage"],
-        ["Positive", sentimentCounts.positive, `${((sentimentCounts.positive / results.length) * 100).toFixed(1)}%`],
-        ["Negative", sentimentCounts.negative, `${((sentimentCounts.negative / results.length) * 100).toFixed(1)}%`],
-        ["Neutral", sentimentCounts.neutral, `${((sentimentCounts.neutral / results.length) * 100).toFixed(1)}%`],
-        [""],
-        ["Total Comments", results.length, "100%"]
+        ["Sentiment", "Count", "Percentage"],
+        ["Positive", sentimentCounts.positive.toString(), `${((sentimentCounts.positive / results.length) * 100).toFixed(1)}%`],
+        ["Negative", sentimentCounts.negative.toString(), `${((sentimentCounts.negative / results.length) * 100).toFixed(1)}%`],
+        ["Neutral", sentimentCounts.neutral.toString(), `${((sentimentCounts.neutral / results.length) * 100).toFixed(1)}%`],
+        ["Total", results.length.toString(), "100%"]
       ];
-
-      // Create workbook with multiple sheets
-      const wb = utils.book_new();
       
-      // Add summary sheet
-      const summaryWs = utils.aoa_to_sheet(summaryData);
-      utils.book_append_sheet(wb, summaryWs, "Summary");
+      autoTable(doc, {
+        startY: 45,
+        head: [summaryData[0]],
+        body: summaryData.slice(1),
+        theme: 'grid',
+        headStyles: { fillColor: [99, 102, 241] },
+      });
       
-      // Add detailed results sheet
-      const detailsWs = utils.aoa_to_sheet(exportData);
-      utils.book_append_sheet(wb, detailsWs, "Detailed Results");
-
-      // Generate ODF (.ods) file
-      const wbout = write(wb, { bookType: "ods", type: "array" });
-      const blob = new Blob([wbout], { type: "application/vnd.oasis.opendocument.spreadsheet" });
+      // Detailed Results Section
+      const finalY = (doc as any).lastAutoTable.finalY || 80;
+      doc.setFontSize(14);
+      doc.text("Detailed Results", 14, finalY + 10);
       
-      // Create download link
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `sentiment-analysis-${new Date().toISOString().split('T')[0]}.ods`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      const detailedData = results.map(result => [
+        result.sentiment.charAt(0).toUpperCase() + result.sentiment.slice(1),
+        result.comment.length > 80 ? result.comment.substring(0, 80) + "..." : result.comment
+      ]);
+      
+      autoTable(doc, {
+        startY: finalY + 15,
+        head: [["Sentiment", "Comment"]],
+        body: detailedData,
+        theme: 'striped',
+        headStyles: { fillColor: [99, 102, 241] },
+        columnStyles: {
+          0: { cellWidth: 30 },
+          1: { cellWidth: 150 }
+        },
+        styles: { fontSize: 9 }
+      });
+      
+      // Save PDF
+      doc.save(`sentiment-analysis-${new Date().toISOString().split('T')[0]}.pdf`);
 
       toast({
         title: "Download Complete",
-        description: "Your sentiment analysis has been exported to ODF format",
+        description: "Your sentiment analysis has been exported to PDF format",
       });
     } catch (error) {
       console.error("Export error:", error);
@@ -138,12 +149,12 @@ const Dashboard = ({ results }: DashboardProps) => {
               Analysis Dashboard
             </h2>
             <Button
-              onClick={downloadODF}
+              onClick={downloadPDF}
               className="bg-gradient-to-r from-primary to-accent hover:opacity-90"
               size="lg"
             >
               <Download className="mr-2 h-5 w-5" />
-              Download ODF
+              Download PDF
             </Button>
           </div>
 
