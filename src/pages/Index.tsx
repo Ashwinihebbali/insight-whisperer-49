@@ -98,7 +98,15 @@ const Index = () => {
         isAnalyzing={isAnalyzing}
         analysisProgress={analysisProgress}
       />
-      {results.length > 0 && <Dashboard results={results} />}
+      {results.length > 0 && (
+        <Dashboard 
+          results={results} 
+          onReset={() => {
+            setResults([]);
+            setAnalysisProgress({ current: 0, total: 0 });
+          }}
+        />
+      )}
       <Chatbot />
     </div>
   );
