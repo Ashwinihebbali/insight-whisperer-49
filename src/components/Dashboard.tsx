@@ -23,6 +23,8 @@ interface SentimentResult {
 interface DashboardProps {
   results: SentimentResult[];
   onReset: () => void;
+  isAnalyzing?: boolean;
+  currentAnalysis?: SentimentResult | null;
 }
 
 const COLORS = {
@@ -31,7 +33,7 @@ const COLORS = {
   neutral: "hsl(var(--warning))",
 };
 
-const Dashboard = ({ results, onReset }: DashboardProps) => {
+const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: DashboardProps) => {
   const { toast } = useToast();
   const [feedbackName, setFeedbackName] = useState("");
   const [feedbackText, setFeedbackText] = useState("");
@@ -253,6 +255,91 @@ const Dashboard = ({ results, onReset }: DashboardProps) => {
               Download Complete Report
             </Button>
           </div>
+
+          {/* Real-Time Analysis Feed */}
+          {isAnalyzing && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="mb-8"
+            >
+              <Card className="shadow-lg bg-gradient-to-br from-primary/5 to-accent/5 border-primary/20">
+                <CardHeader>
+                  <CardTitle className="text-2xl flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-primary animate-pulse" />
+                    Real-Time Analysis
+                  </CardTitle>
+                  <CardDescription>Live sentiment detection as comments are processed</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {currentAnalysis && (
+                    <motion.div
+                      key={currentAnalysis.comment}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="p-4 rounded-lg bg-background border-2"
+                      style={{
+                        borderColor: COLORS[currentAnalysis.sentiment],
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-muted-foreground mb-2">Current Comment:</p>
+                          <p className="text-foreground font-medium break-words">{currentAnalysis.comment}</p>
+                        </div>
+                        <Badge
+                          className="shrink-0"
+                          style={{
+                            backgroundColor: COLORS[currentAnalysis.sentiment],
+                            color: "white",
+                          }}
+                        >
+                          {currentAnalysis.sentiment === "positive" && <TrendingUp className="mr-1 h-3 w-3" />}
+                          {currentAnalysis.sentiment === "negative" && <TrendingDown className="mr-1 h-3 w-3" />}
+                          {currentAnalysis.sentiment === "neutral" && <Minus className="mr-1 h-3 w-3" />}
+                          {currentAnalysis.sentiment.toUpperCase()}
+                        </Badge>
+                      </div>
+                    </motion.div>
+                  )}
+                  
+                  {results.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-sm font-medium text-muted-foreground mb-3">
+                        Recent Analyses ({results.length} completed)
+                      </p>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {results.slice(-5).reverse().map((result, idx) => (
+                          <motion.div
+                            key={idx}
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="flex items-center gap-3 p-3 rounded-md bg-secondary/50 text-sm"
+                          >
+                            <Badge
+                              variant="outline"
+                              className="shrink-0"
+                              style={{
+                                borderColor: COLORS[result.sentiment],
+                                color: COLORS[result.sentiment],
+                              }}
+                            >
+                              {result.sentiment === "positive" && <TrendingUp className="mr-1 h-3 w-3" />}
+                              {result.sentiment === "negative" && <TrendingDown className="mr-1 h-3 w-3" />}
+                              {result.sentiment === "neutral" && <Minus className="mr-1 h-3 w-3" />}
+                              {result.sentiment}
+                            </Badge>
+                            <p className="text-muted-foreground truncate flex-1">{result.comment}</p>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">

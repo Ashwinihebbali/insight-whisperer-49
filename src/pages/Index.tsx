@@ -16,10 +16,12 @@ const Index = () => {
   const [results, setResults] = useState<SentimentResult[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState({ current: 0, total: 0 });
+  const [currentAnalysis, setCurrentAnalysis] = useState<SentimentResult | null>(null);
   const { toast } = useToast();
 
   const handleAnalyzeLocal = async (comments: string[]) => {
     setIsAnalyzing(true);
+    setResults([]);
     setAnalysisProgress({ current: 0, total: comments.length });
     
     try {
@@ -28,11 +30,15 @@ const Index = () => {
         description: `Analyzing ${comments.length} comments in your browser...`,
       });
 
-      const results = await analyzeSentimentLocal(comments, (current, total) => {
+      const results = await analyzeSentimentLocal(comments, (current, total, result) => {
         setAnalysisProgress({ current, total });
+        if (result) {
+          setCurrentAnalysis(result);
+          setResults(prev => [...prev, result]);
+        }
       });
 
-      setResults(results);
+      setCurrentAnalysis(null);
       
       toast({
         title: "Analysis Complete!",
@@ -49,6 +55,7 @@ const Index = () => {
     } finally {
       setIsAnalyzing(false);
       setAnalysisProgress({ current: 0, total: 0 });
+      setCurrentAnalysis(null);
     }
   };
 
@@ -98,13 +105,16 @@ const Index = () => {
         isAnalyzing={isAnalyzing}
         analysisProgress={analysisProgress}
       />
-      {results.length > 0 && (
+      {(results.length > 0 || isAnalyzing) && (
         <Dashboard 
           results={results} 
           onReset={() => {
             setResults([]);
             setAnalysisProgress({ current: 0, total: 0 });
+            setCurrentAnalysis(null);
           }}
+          isAnalyzing={isAnalyzing}
+          currentAnalysis={currentAnalysis}
         />
       )}
       <Chatbot />

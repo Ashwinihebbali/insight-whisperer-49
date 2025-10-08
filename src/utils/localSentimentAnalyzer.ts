@@ -14,7 +14,7 @@ export async function initializeSentimentAnalyzer() {
 
 export async function analyzeSentimentLocal(
   comments: string[],
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number, result?: { comment: string; sentiment: "positive" | "negative" | "neutral" }) => void
 ): Promise<{ comment: string; sentiment: "positive" | "negative" | "neutral" }[]> {
   const analyzer = await initializeSentimentAnalyzer();
   const results: { comment: string; sentiment: "positive" | "negative" | "neutral" }[] = [];
@@ -35,10 +35,11 @@ export async function analyzeSentimentLocal(
       sentiment = label === "positive" ? "positive" : "negative";
     }
     
-    results.push({ comment, sentiment });
+    const analysisResult = { comment, sentiment };
+    results.push(analysisResult);
     
     if (onProgress) {
-      onProgress(i + 1, comments.length);
+      onProgress(i + 1, comments.length, analysisResult);
     }
   }
 
