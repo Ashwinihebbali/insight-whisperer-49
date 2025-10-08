@@ -306,6 +306,113 @@ const Dashboard = ({ results, onReset }: DashboardProps) => {
             </Card>
           </div>
 
+          {/* Dataset Summary */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="mb-6"
+          >
+            <Card className="shadow-lg bg-gradient-to-br from-primary/10 to-accent/10">
+              <CardHeader>
+                <CardTitle className="text-2xl">Dataset Summary</CardTitle>
+                <CardDescription>Comprehensive overview of sentiment analysis results</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="prose prose-sm max-w-none">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-lg text-foreground">📊 Overall Sentiment</h4>
+                      <p className="text-foreground">
+                        This dataset contains <strong>{results.length} total comments</strong> with a sentiment distribution of{" "}
+                        <span className="text-success font-semibold">{sentimentCounts.positive} positive</span> (
+                        {((sentimentCounts.positive / results.length) * 100).toFixed(1)}%),{" "}
+                        <span className="text-error font-semibold">{sentimentCounts.negative} negative</span> (
+                        {((sentimentCounts.negative / results.length) * 100).toFixed(1)}%),{" "}
+                        and <span className="text-warning font-semibold">{sentimentCounts.neutral} neutral</span> (
+                        {((sentimentCounts.neutral / results.length) * 100).toFixed(1)}%).
+                      </p>
+                      <p className="text-foreground">
+                        The dominant sentiment is <strong className="capitalize">{dominantSentiment}</strong>, 
+                        indicating {dominantSentiment === "positive" ? "overall user satisfaction" : 
+                        dominantSentiment === "negative" ? "areas requiring improvement" : 
+                        "mixed or balanced opinions"}.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-lg text-foreground">🎯 Domain Insights</h4>
+                      <p className="text-foreground">
+                        The most discussed domain is{" "}
+                        <strong>
+                          {Object.entries(domainData).reduce((a, b) => 
+                            (b[1].positive + b[1].negative + b[1].neutral) > 
+                            (a[1].positive + a[1].negative + a[1].neutral) ? b : a
+                          )[0]}
+                        </strong>{" "}
+                        with{" "}
+                        {Object.entries(domainData).reduce((a, b) => 
+                          (b[1].positive + b[1].negative + b[1].neutral) > 
+                          (a[1].positive + a[1].negative + a[1].neutral) ? b : a
+                        )[1].positive + 
+                        Object.entries(domainData).reduce((a, b) => 
+                          (b[1].positive + b[1].negative + b[1].neutral) > 
+                          (a[1].positive + a[1].negative + a[1].neutral) ? b : a
+                        )[1].negative + 
+                        Object.entries(domainData).reduce((a, b) => 
+                          (b[1].positive + b[1].negative + b[1].neutral) > 
+                          (a[1].positive + a[1].negative + a[1].neutral) ? b : a
+                        )[1].neutral} comments.
+                      </p>
+                      <p className="text-foreground">
+                        Analysis across <strong>{Object.keys(domainData).length} domains</strong> reveals varied sentiment patterns, 
+                        with each domain showing unique user engagement characteristics.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 p-4 bg-background rounded-lg border">
+                    <h4 className="font-semibold text-lg text-foreground mb-3">💡 Key Findings</h4>
+                    <ul className="space-y-2 text-foreground">
+                      <li>• Average comment length: <strong>{avgCommentLength} characters</strong></li>
+                      <li>
+                        • Sentiment balance:{" "}
+                        {sentimentCounts.positive > sentimentCounts.negative ? (
+                          <span className="text-success font-medium">
+                            Positive feedback outweighs negative by{" "}
+                            {sentimentCounts.positive - sentimentCounts.negative} comments
+                          </span>
+                        ) : sentimentCounts.negative > sentimentCounts.positive ? (
+                          <span className="text-error font-medium">
+                            Negative feedback exceeds positive by{" "}
+                            {sentimentCounts.negative - sentimentCounts.positive} comments
+                          </span>
+                        ) : (
+                          <span className="text-warning font-medium">Equal positive and negative feedback</span>
+                        )}
+                      </li>
+                      <li>
+                        • Neutral sentiment represents{" "}
+                        <strong>{((sentimentCounts.neutral / results.length) * 100).toFixed(1)}%</strong> of feedback, 
+                        {sentimentCounts.neutral / results.length > 0.3 ? 
+                          " indicating significant ambivalence or informational content" : 
+                          " suggesting clear user opinions"}
+                      </li>
+                      <li>
+                        • Engagement level:{" "}
+                        {avgCommentLength > 100 ? (
+                          <span className="font-medium">High - Users provide detailed feedback</span>
+                        ) : (
+                          <span className="font-medium">Moderate - Concise user responses</span>
+                        )}
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
           {/* Charts Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             {/* Pie Chart */}
