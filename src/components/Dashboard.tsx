@@ -228,11 +228,25 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
   const negativeWords = generateWordCloudData("negative");
   const neutralWords = generateWordCloudData("neutral");
 
-  // Calculate interesting facts
-  const avgCommentLength = Math.round(results.reduce((acc, r) => acc + r.comment.length, 0) / results.length);
-  const longestComment = results.reduce((longest, r) => r.comment.length > longest.comment.length ? r : longest, results[0]);
-  const sentimentPercentage = ((sentimentCounts.positive / results.length) * 100).toFixed(1);
-  const dominantSentiment = Object.entries(sentimentCounts).reduce((a, b) => b[1] > a[1] ? b : a)[0];
+  // Calculate interesting facts with safety checks
+  const avgCommentLength = results.length > 0 
+    ? Math.round(results.reduce((acc, r) => acc + r.comment.length, 0) / results.length)
+    : 0;
+  const longestComment = results.length > 0 
+    ? results.reduce((longest, r) => r.comment.length > longest.comment.length ? r : longest, results[0])
+    : null;
+  const sentimentPercentage = results.length > 0
+    ? ((sentimentCounts.positive / results.length) * 100).toFixed(1)
+    : "0";
+  const dominantSentiment = results.length > 0
+    ? Object.entries(sentimentCounts).reduce((a, b) => b[1] > a[1] ? b : a)[0]
+    : "neutral";
+  const mostDiscussedDomain = Object.keys(domainData).length > 0
+    ? Object.entries(domainData).reduce((a, b) => 
+        (b[1].positive + b[1].negative + b[1].neutral) > 
+        (a[1].positive + a[1].negative + a[1].neutral) ? b : a
+      )
+    : null;
 
   return (
     <section className="py-12 px-4 bg-secondary/20">
@@ -361,7 +375,7 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
               <CardContent>
                 <div className="text-2xl font-bold text-success">{sentimentCounts.positive}</div>
                 <p className="text-xs text-muted-foreground">
-                  {((sentimentCounts.positive / results.length) * 100).toFixed(1)}%
+                  {results.length > 0 ? ((sentimentCounts.positive / results.length) * 100).toFixed(1) : "0"}%
                 </p>
               </CardContent>
             </Card>
@@ -374,7 +388,7 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
               <CardContent>
                 <div className="text-2xl font-bold text-error">{sentimentCounts.negative}</div>
                 <p className="text-xs text-muted-foreground">
-                  {((sentimentCounts.negative / results.length) * 100).toFixed(1)}%
+                  {results.length > 0 ? ((sentimentCounts.negative / results.length) * 100).toFixed(1) : "0"}%
                 </p>
               </CardContent>
             </Card>
@@ -387,19 +401,20 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
               <CardContent>
                 <div className="text-2xl font-bold text-warning">{sentimentCounts.neutral}</div>
                 <p className="text-xs text-muted-foreground">
-                  {((sentimentCounts.neutral / results.length) * 100).toFixed(1)}%
+                  {results.length > 0 ? ((sentimentCounts.neutral / results.length) * 100).toFixed(1) : "0"}%
                 </p>
               </CardContent>
             </Card>
           </div>
 
           {/* Dataset Summary */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="mb-6"
-          >
+          {results.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="mb-6"
+            >
             <Card className="shadow-lg bg-gradient-to-br from-primary/10 to-accent/10">
               <CardHeader>
                 <CardTitle className="text-2xl">Dataset Summary</CardTitle>
@@ -429,32 +444,24 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
 
                     <div className="space-y-3">
                       <h4 className="font-semibold text-lg text-foreground">🎯 Domain Insights</h4>
-                      <p className="text-foreground">
-                        The most discussed domain is{" "}
-                        <strong>
-                          {Object.entries(domainData).reduce((a, b) => 
-                            (b[1].positive + b[1].negative + b[1].neutral) > 
-                            (a[1].positive + a[1].negative + a[1].neutral) ? b : a
-                          )[0]}
-                        </strong>{" "}
-                        with{" "}
-                        {Object.entries(domainData).reduce((a, b) => 
-                          (b[1].positive + b[1].negative + b[1].neutral) > 
-                          (a[1].positive + a[1].negative + a[1].neutral) ? b : a
-                        )[1].positive + 
-                        Object.entries(domainData).reduce((a, b) => 
-                          (b[1].positive + b[1].negative + b[1].neutral) > 
-                          (a[1].positive + a[1].negative + a[1].neutral) ? b : a
-                        )[1].negative + 
-                        Object.entries(domainData).reduce((a, b) => 
-                          (b[1].positive + b[1].negative + b[1].neutral) > 
-                          (a[1].positive + a[1].negative + a[1].neutral) ? b : a
-                        )[1].neutral} comments.
-                      </p>
-                      <p className="text-foreground">
-                        Analysis across <strong>{Object.keys(domainData).length} domains</strong> reveals varied sentiment patterns, 
-                        with each domain showing unique user engagement characteristics.
-                      </p>
+                      {mostDiscussedDomain ? (
+                        <>
+                          <p className="text-foreground">
+                            The most discussed domain is{" "}
+                            <strong>{mostDiscussedDomain[0]}</strong>{" "}
+                            with{" "}
+                            {mostDiscussedDomain[1].positive + mostDiscussedDomain[1].negative + mostDiscussedDomain[1].neutral} comments.
+                          </p>
+                          <p className="text-foreground">
+                            Analysis across <strong>{Object.keys(domainData).length} domains</strong> reveals varied sentiment patterns, 
+                            with each domain showing unique user engagement characteristics.
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-foreground">
+                          No domain-specific patterns detected yet. Upload more data to see detailed domain insights.
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -499,6 +506,7 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
               </CardContent>
             </Card>
           </motion.div>
+          )}
 
           {/* Charts Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
