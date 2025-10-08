@@ -23,11 +23,17 @@ export async function analyzeSentimentLocal(
     const comment = comments[i];
     const result = await analyzer(comment);
     
-    // Map the result to our sentiment format
+    // Map the result to our sentiment format using confidence threshold
     const label = result[0].label.toLowerCase();
-    const sentiment: "positive" | "negative" | "neutral" = 
-      label === "positive" ? "positive" :
-      label === "negative" ? "negative" : "neutral";
+    const score = result[0].score;
+    
+    // If confidence is below 0.7, classify as neutral
+    let sentiment: "positive" | "negative" | "neutral";
+    if (score < 0.7) {
+      sentiment = "neutral";
+    } else {
+      sentiment = label === "positive" ? "positive" : "negative";
+    }
     
     results.push({ comment, sentiment });
     
