@@ -779,10 +779,7 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
                   <div className="p-4 bg-background rounded-lg">
                     <p className="text-sm text-muted-foreground">Most Active Domain</p>
                     <p className="text-2xl font-bold">
-                      {Object.entries(domainData).reduce((a, b) => 
-                        (b[1].positive + b[1].negative + b[1].neutral) > 
-                        (a[1].positive + a[1].negative + a[1].neutral) ? b : a
-                      )[0]}
+                      {mostDiscussedDomain ? mostDiscussedDomain[0] : "N/A"}
                     </p>
                   </div>
                 </div>
@@ -815,10 +812,7 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
                   The data reveals {sentimentCounts.positive} positive comments, {sentimentCounts.negative} negative comments, 
                   and {sentimentCounts.neutral} neutral comments. The most discussed domain is{" "}
                   <strong>
-                    {Object.entries(domainData).reduce((a, b) => 
-                      (b[1].positive + b[1].negative + b[1].neutral) > 
-                      (a[1].positive + a[1].negative + a[1].neutral) ? b : a
-                    )[0]}
+                    {mostDiscussedDomain ? mostDiscussedDomain[0] : "N/A"}
                   </strong>, indicating where users are most engaged.
                 </p>
                 {sentimentCounts.positive > sentimentCounts.negative ? (
