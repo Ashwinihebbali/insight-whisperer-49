@@ -828,64 +828,151 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
             </Card>
           </motion.div>
 
-          {/* Feedback Form */}
+          {/* Feedback Section */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.65 }}
             className="mb-6"
           >
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle>Share Your Feedback</CardTitle>
-                <CardDescription>Help us improve this analysis tool</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {feedbackSubmitted ? (
-                  <div className="text-center py-8">
-                    <h3 className="text-2xl font-bold text-success mb-4">Thank You for Your Feedback! 🎉</h3>
-                    <p className="text-muted-foreground mb-6">
-                      We appreciate your input and will use it to improve our service.
-                    </p>
-                    <Button
-                      onClick={() => {
-                        setFeedbackSubmitted(false);
-                        setFeedbackName("");
-                        setFeedbackText("");
-                        onReset();
-                      }}
-                      className="bg-gradient-to-r from-primary to-accent hover:opacity-90"
-                      size="lg"
-                    >
-                      Upload New Dataset
-                    </Button>
+            <Card className="shadow-2xl border-0 overflow-hidden bg-gradient-to-br from-primary/5 via-background to-accent/5">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-accent/10 opacity-50" />
+              <CardHeader className="relative z-10 pb-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-accent">
+                    <Lightbulb className="h-6 w-6 text-primary-foreground" />
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Name</label>
-                      <Input
-                        placeholder="Enter your name"
-                        value={feedbackName}
-                        onChange={(e) => setFeedbackName(e.target.value)}
-                      />
+                  <div>
+                    <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                      We Value Your Feedback
+                    </CardTitle>
+                    <CardDescription className="text-base mt-1">
+                      Help us enhance your experience with this sentiment analysis tool
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="relative z-10 pt-2">
+                {feedbackSubmitted ? (
+                  <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="text-center py-12 px-6"
+                  >
+                    <div className="mb-6 inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-success/20 to-success/10 border-4 border-success/30">
+                      <TrendingUp className="h-10 w-10 text-success" />
                     </div>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Feedback</label>
+                    <h3 className="text-3xl font-bold text-foreground mb-3">
+                      Thank You for Your Feedback!
+                    </h3>
+                    <p className="text-lg text-muted-foreground mb-8 max-w-md mx-auto">
+                      Your insights are invaluable and will help us create a better experience for everyone.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                      <Button
+                        onClick={() => {
+                          setFeedbackSubmitted(false);
+                          setFeedbackName("");
+                          setFeedbackText("");
+                          onReset();
+                        }}
+                        className="bg-gradient-to-r from-primary to-accent hover:opacity-90 text-lg px-8"
+                        size="lg"
+                      >
+                        <FileText className="mr-2 h-5 w-5" />
+                        Analyze New Dataset
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setFeedbackSubmitted(false);
+                          setFeedbackName("");
+                          setFeedbackText("");
+                        }}
+                        variant="outline"
+                        className="text-lg px-8 border-2"
+                        size="lg"
+                      >
+                        Submit More Feedback
+                      </Button>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <div className="space-y-6 py-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs">1</span>
+                          Your Name
+                        </label>
+                        <Input
+                          placeholder="Enter your full name"
+                          value={feedbackName}
+                          onChange={(e) => setFeedbackName(e.target.value)}
+                          className="h-12 text-base border-2 focus:border-primary transition-colors"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs">2</span>
+                          Rate Your Experience
+                        </label>
+                        <div className="flex gap-2 h-12 items-center">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              type="button"
+                              className="text-2xl hover:scale-110 transition-transform"
+                            >
+                              ⭐
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs">3</span>
+                        Share Your Thoughts
+                      </label>
                       <Textarea
-                        placeholder="Share your thoughts about this tool..."
+                        placeholder="Tell us what you think about this sentiment analysis tool. What features do you love? What can we improve? Your detailed feedback helps us serve you better..."
                         value={feedbackText}
                         onChange={(e) => setFeedbackText(e.target.value)}
-                        rows={4}
+                        rows={6}
+                        className="text-base border-2 focus:border-primary transition-colors resize-none"
                       />
+                      <p className="text-xs text-muted-foreground">
+                        {feedbackText.length} / 500 characters
+                      </p>
                     </div>
-                    <Button
-                      onClick={handleFeedbackSubmit}
-                      disabled={isSubmitting}
-                      className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90"
-                    >
-                      {isSubmitting ? "Submitting..." : "Submit Feedback"}
-                    </Button>
+
+                    <div className="pt-4">
+                      <Button
+                        onClick={handleFeedbackSubmit}
+                        disabled={isSubmitting}
+                        className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-primary via-primary to-accent hover:opacity-90 hover:scale-[1.02] transition-all shadow-lg"
+                        size="lg"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                            Submitting Your Feedback...
+                          </>
+                        ) : (
+                          <>
+                            <Lightbulb className="mr-2 h-5 w-5" />
+                            Submit Feedback
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    <div className="pt-4 border-t border-border/50">
+                      <p className="text-sm text-center text-muted-foreground">
+                        Your feedback is confidential and will only be used to improve our services.
+                      </p>
+                    </div>
                   </div>
                 )}
               </CardContent>
