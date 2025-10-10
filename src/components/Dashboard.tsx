@@ -57,14 +57,16 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
   };
 
   // Calculate domain-wise sentiment
-  const domainData = results.reduce((acc, result) => {
-    const domain = classifyDomain(result.comment);
-    if (!acc[domain]) {
-      acc[domain] = { domain, positive: 0, negative: 0, neutral: 0 };
-    }
-    acc[domain][result.sentiment]++;
-    return acc;
-  }, {} as Record<string, { domain: string; positive: number; negative: number; neutral: number }>);
+  const domainData = results
+    .filter(result => result && result.comment)
+    .reduce((acc, result) => {
+      const domain = classifyDomain(result.comment);
+      if (!acc[domain]) {
+        acc[domain] = { domain, positive: 0, negative: 0, neutral: 0 };
+      }
+      acc[domain][result.sentiment]++;
+      return acc;
+    }, {} as Record<string, { domain: string; positive: number; negative: number; neutral: number }>);
 
   const domainChartData = Object.values(domainData);
 
@@ -783,10 +785,12 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
                     </p>
                   </div>
                 </div>
-                <div className="p-4 bg-background rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-2">Longest Comment ({longestComment.comment.length} characters)</p>
-                  <p className="text-sm italic">{longestComment.comment}</p>
-                </div>
+                {longestComment && (
+                  <div className="p-4 bg-background rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-2">Longest Comment ({longestComment.comment.length} characters)</p>
+                    <p className="text-sm italic">{longestComment.comment}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
