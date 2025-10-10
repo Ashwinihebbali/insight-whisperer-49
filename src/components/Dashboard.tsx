@@ -40,10 +40,17 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const safeResults = results.filter((r): r is SentimentResult =>
+    !!r &&
+    typeof r.comment === "string" &&
+    typeof r.sentiment === "string" &&
+    ["positive", "negative", "neutral"].includes(r.sentiment)
+  );
+
   const sentimentCounts = {
-    positive: results.filter(r => r.sentiment === "positive").length,
-    negative: results.filter(r => r.sentiment === "negative").length,
-    neutral: results.filter(r => r.sentiment === "neutral").length,
+    positive: safeResults.filter(r => r.sentiment === "positive").length,
+    negative: safeResults.filter(r => r.sentiment === "negative").length,
+    neutral: safeResults.filter(r => r.sentiment === "neutral").length,
   };
 
   // Domain classification based on keywords
@@ -57,7 +64,7 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
   };
 
   // Calculate domain-wise sentiment
-  const domainData = results
+  const domainData = safeResults
     .filter(result => result && result.comment)
     .reduce((acc, result) => {
       const domain = classifyDomain(result.comment);
@@ -145,10 +152,10 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
       
       const summaryData = [
         ["Sentiment", "Count", "Percentage"],
-        ["Positive", sentimentCounts.positive.toString(), `${((sentimentCounts.positive / results.length) * 100).toFixed(1)}%`],
-        ["Negative", sentimentCounts.negative.toString(), `${((sentimentCounts.negative / results.length) * 100).toFixed(1)}%`],
-        ["Neutral", sentimentCounts.neutral.toString(), `${((sentimentCounts.neutral / results.length) * 100).toFixed(1)}%`],
-        ["Total", results.length.toString(), "100%"]
+        ["Positive", sentimentCounts.positive.toString(), `${(safeResults.length ? (sentimentCounts.positive / safeResults.length) * 100 : 0).toFixed(1)}%`],
+        ["Negative", sentimentCounts.negative.toString(), `${(safeResults.length ? (sentimentCounts.negative / safeResults.length) * 100 : 0).toFixed(1)}%`],
+        ["Neutral", sentimentCounts.neutral.toString(), `${(safeResults.length ? (sentimentCounts.neutral / safeResults.length) * 100 : 0).toFixed(1)}%`],
+        ["Total", safeResults.length.toString(), "100%"]
       ];
       
       autoTable(doc, {
@@ -163,7 +170,7 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
       doc.setFontSize(14);
       doc.text("Detailed Results", 14, finalY + 10);
       
-      const detailedData = results.map(result => [
+      const detailedData = safeResults.map(result => [
         result.sentiment.charAt(0).toUpperCase() + result.sentiment.slice(1),
         result.comment.length > 80 ? result.comment.substring(0, 80) + "..." : result.comment
       ]);
@@ -211,8 +218,8 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
 
   // Separate word clouds for each sentiment
   const generateWordCloudData = (sentiment: "positive" | "negative" | "neutral") => {
-    const words = results
-      .filter(r => r.sentiment === sentiment)
+    const words = safeResults
+      .filter(r => r.sentiment === sentiment && r.comment)
       .flatMap(r => r.comment.toLowerCase().split(/\s+/).filter(word => word.length > 3));
     
     const wordFreq = words.reduce((acc, word) => {
@@ -231,18 +238,16 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
   const neutralWords = generateWordCloudData("neutral");
 
   // Calculate interesting facts with safety checks
-  const avgCommentLength = results.length > 0 
-    ? Math.round(results.reduce((acc, r) => acc + r.comment.length, 0) / results.length)
+  const avgCommentLength = safeResults.length > 0 
+    ? Math.round(safeResults.reduce((acc, r) => acc + r.comment.length, 0) / safeResults.length)
     : 0;
-  const longestComment = results.length > 0 
-    ? results.reduce((longest, r) => r.comment.length > longest.comment.length ? r : longest, results[0])
+  const longestComment = safeResults.length > 0 
+    ? safeResults.reduce((longest, r) => r.comment.length > longest.comment.length ? r : longest, safeResults[0])
     : null;
-  const sentimentPercentage = results.length > 0
-    ? ((sentimentCounts.positive / results.length) * 100).toFixed(1)
+  const sentimentPercentage = safeResults.length > 0
+    ? ((sentimentCounts.positive / safeResults.length) * 100).toFixed(1)
     : "0";
-  const dominantSentiment = results.length > 0
-    ? Object.entries(sentimentCounts).reduce((a, b) => b[1] > a[1] ? b : a)[0]
-    : "neutral";
+  const dominantSentiment = Object.entries(sentimentCounts).reduce((a, b) => b[1] > a[1] ? b : a)[0];
   const mostDiscussedDomain = Object.keys(domainData).length > 0
     ? Object.entries(domainData).reduce((a, b) => 
         (b[1].positive + b[1].negative + b[1].neutral) > 
@@ -320,13 +325,13 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
                     </motion.div>
                   )}
                   
-                  {results.length > 0 && (
+                  {safeResults.length > 0 && (
                     <div className="mt-4">
                       <p className="text-sm font-medium text-muted-foreground mb-3">
-                        Recent Analyses ({results.length} completed)
+                        Recent Analyses ({safeResults.length} completed)
                       </p>
                       <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {results.slice(-5).reverse().map((result, idx) => (
+                        {safeResults.slice(-5).reverse().map((result, idx) => (
                           <motion.div
                             key={idx}
                             initial={{ opacity: 0, y: -10 }}
@@ -365,7 +370,7 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
                 <FileText className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{results.length}</div>
+                <div className="text-2xl font-bold">{safeResults.length}</div>
               </CardContent>
             </Card>
 
@@ -377,7 +382,7 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
               <CardContent>
                 <div className="text-2xl font-bold text-success">{sentimentCounts.positive}</div>
                 <p className="text-xs text-muted-foreground">
-                  {results.length > 0 ? ((sentimentCounts.positive / results.length) * 100).toFixed(1) : "0"}%
+                  {safeResults.length > 0 ? ((sentimentCounts.positive / safeResults.length) * 100).toFixed(1) : "0"}%
                 </p>
               </CardContent>
             </Card>
@@ -390,7 +395,7 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
               <CardContent>
                 <div className="text-2xl font-bold text-error">{sentimentCounts.negative}</div>
                 <p className="text-xs text-muted-foreground">
-                  {results.length > 0 ? ((sentimentCounts.negative / results.length) * 100).toFixed(1) : "0"}%
+                  {safeResults.length > 0 ? ((sentimentCounts.negative / safeResults.length) * 100).toFixed(1) : "0"}%
                 </p>
               </CardContent>
             </Card>
@@ -403,7 +408,7 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
               <CardContent>
                 <div className="text-2xl font-bold text-warning">{sentimentCounts.neutral}</div>
                 <p className="text-xs text-muted-foreground">
-                  {results.length > 0 ? ((sentimentCounts.neutral / results.length) * 100).toFixed(1) : "0"}%
+                  {safeResults.length > 0 ? ((sentimentCounts.neutral / safeResults.length) * 100).toFixed(1) : "0"}%
                 </p>
               </CardContent>
             </Card>
@@ -428,13 +433,13 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
                     <div className="space-y-3">
                       <h4 className="font-semibold text-lg text-foreground">📊 Overall Sentiment</h4>
                       <p className="text-foreground">
-                        This dataset contains <strong>{results.length} total comments</strong> with a sentiment distribution of{" "}
+                        This dataset contains <strong>{safeResults.length} total comments</strong> with a sentiment distribution of{" "
                         <span className="text-success font-semibold">{sentimentCounts.positive} positive</span> (
-                        {((sentimentCounts.positive / results.length) * 100).toFixed(1)}%),{" "}
+                        {((sentimentCounts.positive / (safeResults.length || 1)) * 100).toFixed(1)}%),{" "}
                         <span className="text-error font-semibold">{sentimentCounts.negative} negative</span> (
-                        {((sentimentCounts.negative / results.length) * 100).toFixed(1)}%),{" "}
+                        {((sentimentCounts.negative / (safeResults.length || 1)) * 100).toFixed(1)}%),{" "}
                         and <span className="text-warning font-semibold">{sentimentCounts.neutral} neutral</span> (
-                        {((sentimentCounts.neutral / results.length) * 100).toFixed(1)}%).
+                        {((sentimentCounts.neutral / (safeResults.length || 1)) * 100).toFixed(1)}%).
                       </p>
                       <p className="text-foreground">
                         The dominant sentiment is <strong className="capitalize">{dominantSentiment}</strong>, 
@@ -809,7 +814,7 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
               </CardHeader>
               <CardContent className="prose prose-sm max-w-none">
                 <p className="text-foreground">
-                  Based on the analysis of <strong>{results.length}</strong> comments, the overall sentiment is predominantly{" "}
+                  Based on the analysis of <strong>{safeResults.length}</strong> comments, the overall sentiment is predominantly{" "
                   <strong className="capitalize">{dominantSentiment}</strong> with {sentimentPercentage}% positive feedback.
                 </p>
                 <p className="text-foreground">
@@ -1004,7 +1009,7 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {results.map((result, index) => (
+                      {safeResults.map((result, index) => (
                         <TableRow key={index}>
                           <TableCell>
                             <Badge
