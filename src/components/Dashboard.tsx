@@ -433,7 +433,7 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
                     <div className="space-y-3">
                       <h4 className="font-semibold text-lg text-foreground">📊 Overall Sentiment</h4>
                       <p className="text-foreground">
-                        This dataset contains <strong>{safeResults.length} total comments</strong> with a sentiment distribution of{" "
+                        This dataset contains <strong>{safeResults.length} total comments</strong> with a sentiment distribution of{" "} "
                         <span className="text-success font-semibold">{sentimentCounts.positive} positive</span> (
                         {((sentimentCounts.positive / (safeResults.length || 1)) * 100).toFixed(1)}%),{" "}
                         <span className="text-error font-semibold">{sentimentCounts.negative} negative</span> (
@@ -814,7 +814,7 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
               </CardHeader>
               <CardContent className="prose prose-sm max-w-none">
                 <p className="text-foreground">
-                  Based on the analysis of <strong>{safeResults.length}</strong> comments, the overall sentiment is predominantly{" "
+                  Based on the analysis of <strong>{safeResults.length}</strong> comments, the overall sentiment is predominantly{" "} "
                   <strong className="capitalize">{dominantSentiment}</strong> with {sentimentPercentage}% positive feedback.
                 </p>
                 <p className="text-foreground">
