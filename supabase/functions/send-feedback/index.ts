@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,44 +19,55 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { name, feedback }: FeedbackRequest = await req.json();
 
-    console.log("Sending feedback email:", { name, feedback });
+    console.log("Saving feedback to database:", { name, feedback });
 
-    const emailResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-      },
-      body: JSON.stringify({
-        from: "Sentiment Analysis <onboarding@resend.dev>",
-        to: ["ashwinihebbali068@gmail.com"],
-        subject: `New Feedback from ${name}`,
-        html: `
-          <h1>New Feedback Received</h1>
-          <p><strong>From:</strong> ${name}</p>
-          <p><strong>Feedback:</strong></p>
-          <p>${feedback}</p>
-          <hr>
-          <p style="color: #666; font-size: 12px;">Sent from Sentiment Analysis Dashboard</p>
-        `,
-      }),
-    });
-
-    if (!emailResponse.ok) {
-      const error = await emailResponse.text();
-      console.error("Resend API error:", error);
-      throw new Error(`Failed to send email: ${error}`);
+    // Validate input
+    if (!name || !feedback || name.trim().length === 0 || feedback.trim().length === 0) {
+      return new Response(
+        JSON.stringify({ error: "Name and feedback are required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
     }
 
-    const result = await emailResponse.json();
-    console.log("Email sent successfully:", result);
+    if (name.length > 100) {
+      return new Response(
+        JSON.stringify({ error: "Name must be less than 100 characters" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
-    return new Response(JSON.stringify({ success: true }), {
+    if (feedback.length > 2000) {
+      return new Response(
+        JSON.stringify({ error: "Feedback must be less than 2000 characters" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Create Supabase client
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+    );
+
+    // Insert feedback into database
+    const { data, error } = await supabase
+      .from("feedback")
+      .insert([{ name: name.trim(), feedback: feedback.trim() }])
+      .select();
+
+    if (error) {
+      console.error("Database error:", error);
+      throw new Error(`Failed to save feedback: ${error.message}`);
+    }
+
+    console.log("Feedback saved successfully:", data);
+
+    return new Response(JSON.stringify({ success: true, data }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error: any) {
-    console.error("Error sending feedback:", error);
+    console.error("Error saving feedback:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
