@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { message, history } = await req.json();
+    const { message, history, analysisData } = await req.json();
     console.log(`Chatbot query: ${message}`);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -19,15 +19,37 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
+    // Build system prompt with analysis data
+    let systemPrompt = "You are a helpful AI assistant for a sentiment analysis platform. ";
+    
+    if (analysisData && analysisData.totalComments > 0) {
+      systemPrompt += `The user has analyzed ${analysisData.totalComments} comments with the following results:\n`;
+      systemPrompt += `- Positive: ${analysisData.sentimentCounts.positive} (${((analysisData.sentimentCounts.positive / analysisData.totalComments) * 100).toFixed(1)}%)\n`;
+      systemPrompt += `- Negative: ${analysisData.sentimentCounts.negative} (${((analysisData.sentimentCounts.negative / analysisData.totalComments) * 100).toFixed(1)}%)\n`;
+      systemPrompt += `- Neutral: ${analysisData.sentimentCounts.neutral} (${((analysisData.sentimentCounts.neutral / analysisData.totalComments) * 100).toFixed(1)}%)\n\n`;
+      
+      // Include sample comments
+      if (analysisData.comments.length > 0) {
+        systemPrompt += "Sample analyzed comments:\n";
+        analysisData.comments.slice(0, 20).forEach((item: any, idx: number) => {
+          systemPrompt += `${idx + 1}. [${item.sentiment.toUpperCase()}] ${item.comment}\n`;
+        });
+      }
+      
+      systemPrompt += "\n\nUse this sentiment analysis data to answer questions. Provide insights, identify patterns, and make recommendations based on the actual analyzed data. Be specific and reference the data when appropriate.";
+    } else {
+      systemPrompt += "Help users understand:\n";
+      systemPrompt += "- How to use the sentiment analysis tool\n";
+      systemPrompt += "- How to interpret sentiment results (positive, negative, neutral)\n";
+      systemPrompt += "- Best practices for e-consultation analysis\n";
+      systemPrompt += "- Understanding visualizations (pie charts, bar charts, word clouds)\n";
+      systemPrompt += "Keep responses concise and helpful.";
+    }
+
     const messages = [
       {
         role: "system",
-        content: `You are a helpful AI assistant for a sentiment analysis platform. Help users understand:
-        - How to use the sentiment analysis tool
-        - How to interpret sentiment results (positive, negative, neutral)
-        - Best practices for e-consultation analysis
-        - Understanding the visualizations (pie charts, bar charts, word clouds)
-        Keep responses concise and helpful.`
+        content: systemPrompt
       },
       ...(history || []),
       {
@@ -49,6 +71,12 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error("Rate limit exceeded. Please try again later.");
+      }
+      if (response.status === 402) {
+        throw new Error("AI credits exhausted. Please add credits to continue.");
+      }
       console.error(`AI API error: ${response.status}`);
       throw new Error(`AI API error: ${response.status}`);
     }
