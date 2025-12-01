@@ -117,7 +117,7 @@ const Index = () => {
           currentAnalysis={currentAnalysis}
         />
       )}
-      <Chatbot />
+      <Chatbot analysisResults={results} />
     </div>
   );
 };
