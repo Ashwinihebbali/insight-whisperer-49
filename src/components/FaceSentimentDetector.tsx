@@ -238,36 +238,96 @@ const FaceSentimentDetector = () => {
     height: number
   ) => {
     ctx.clearRect(0, 0, width, height);
-    ctx.lineWidth = 3;
-    ctx.font = "bold 20px Arial";
+    ctx.lineWidth = 4;
+    ctx.font = "bold 24px Arial";
 
-    faces.forEach((face) => {
-      const { box, sentiment } = face;
+    faces.forEach((face, index) => {
+      const { box, sentiment, confidence } = face;
       
       // Set color based on sentiment
       let color = "#FFC107"; // neutral - yellow
-      if (sentiment === "happy") color = "#4CAF50"; // green
-      if (sentiment === "sad") color = "#F44336"; // red
+      let emoji = "😐";
+      let labelText = "NEUTRAL";
+      
+      if (sentiment === "happy") {
+        color = "#4CAF50"; // green
+        emoji = "😊";
+        labelText = "HAPPY";
+      } else if (sentiment === "sad") {
+        color = "#F44336"; // red
+        emoji = "😢";
+        labelText = "SAD";
+      }
 
       ctx.strokeStyle = color;
       ctx.fillStyle = color;
 
-      // Draw rectangle
+      // Draw rectangle around face
       const boxWidth = box.xmax - box.xmin;
       const boxHeight = box.ymax - box.ymin;
       ctx.strokeRect(box.xmin, box.ymin, boxWidth, boxHeight);
 
-      // Draw label background
-      const label = sentiment.toUpperCase();
-      const textMetrics = ctx.measureText(label);
-      const textWidth = textMetrics.width;
-      const textHeight = 25;
+      // Draw corner accents for better visibility
+      const cornerLength = 20;
+      ctx.lineWidth = 6;
+      // Top-left corner
+      ctx.beginPath();
+      ctx.moveTo(box.xmin, box.ymin + cornerLength);
+      ctx.lineTo(box.xmin, box.ymin);
+      ctx.lineTo(box.xmin + cornerLength, box.ymin);
+      ctx.stroke();
+      // Top-right corner
+      ctx.beginPath();
+      ctx.moveTo(box.xmax - cornerLength, box.ymin);
+      ctx.lineTo(box.xmax, box.ymin);
+      ctx.lineTo(box.xmax, box.ymin + cornerLength);
+      ctx.stroke();
+      // Bottom-left corner
+      ctx.beginPath();
+      ctx.moveTo(box.xmin, box.ymax - cornerLength);
+      ctx.lineTo(box.xmin, box.ymax);
+      ctx.lineTo(box.xmin + cornerLength, box.ymax);
+      ctx.stroke();
+      // Bottom-right corner
+      ctx.beginPath();
+      ctx.moveTo(box.xmax - cornerLength, box.ymax);
+      ctx.lineTo(box.xmax, box.ymax);
+      ctx.lineTo(box.xmax, box.ymax - cornerLength);
+      ctx.stroke();
+
+      ctx.lineWidth = 4;
+
+      // Prepare label with emoji and text
+      const fullLabel = `${emoji} ${labelText}`;
+      const confidenceLabel = `${Math.round(confidence * 100)}%`;
       
-      ctx.fillRect(box.xmin, box.ymin - textHeight - 5, textWidth + 16, textHeight + 5);
+      ctx.font = "bold 24px Arial";
+      const textMetrics = ctx.measureText(fullLabel);
+      const textWidth = textMetrics.width;
+      
+      ctx.font = "16px Arial";
+      const confMetrics = ctx.measureText(confidenceLabel);
+      const maxWidth = Math.max(textWidth, confMetrics.width);
+      
+      const labelHeight = 55;
+      const padding = 12;
+      
+      // Draw label background with rounded corners effect
+      ctx.fillStyle = color;
+      ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+      ctx.shadowBlur = 10;
+      ctx.fillRect(box.xmin, box.ymin - labelHeight - 8, maxWidth + padding * 2, labelHeight);
+      ctx.shadowBlur = 0;
       
       // Draw label text
       ctx.fillStyle = "#FFFFFF";
-      ctx.fillText(label, box.xmin + 8, box.ymin - 10);
+      ctx.font = "bold 24px Arial";
+      ctx.fillText(fullLabel, box.xmin + padding, box.ymin - labelHeight + 28);
+      
+      // Draw confidence percentage
+      ctx.font = "14px Arial";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.fillText(confidenceLabel, box.xmin + padding, box.ymin - labelHeight + 48);
     });
   };
 
@@ -344,24 +404,27 @@ const FaceSentimentDetector = () => {
             </Button>
 
             {isActive && (
-              <div className="text-center space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  Multiple faces are detected automatically with real-time sentiment analysis
+              <div className="text-center space-y-3">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Real-time emotion detection with labeled faces
                 </p>
-                <div className="flex items-center justify-center gap-4 text-xs">
+                <div className="flex items-center justify-center gap-6 text-sm">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-green-500 rounded"></div>
-                    <span>Happy</span>
+                    <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                    <span className="font-medium">😊 Happy</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-red-500 rounded"></div>
-                    <span>Sad</span>
+                    <div className="w-4 h-4 bg-red-500 rounded-full"></div>
+                    <span className="font-medium">😢 Sad</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-yellow-500 rounded"></div>
-                    <span>Neutral</span>
+                    <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
+                    <span className="font-medium">😐 Neutral</span>
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground/80">
+                  Each face shows its emotion label with confidence percentage
+                </p>
               </div>
             )}
           </div>
