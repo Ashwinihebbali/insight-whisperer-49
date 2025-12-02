@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Camera, CameraOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { pipeline } from "@huggingface/transformers";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface FaceDetection {
   box: {
@@ -25,8 +27,8 @@ const FaceSentimentDetector = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const faceDetectorRef = useRef<any>(null);
-  const emotionClassifierRef = useRef<any>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     return () => {
@@ -35,27 +37,27 @@ const FaceSentimentDetector = () => {
   }, []);
 
   const initModels = async () => {
-    if (!faceDetectorRef.current || !emotionClassifierRef.current) {
+    if (!faceDetectorRef.current) {
       setIsLoading(true);
       try {
         console.log("Loading face detection model...");
         faceDetectorRef.current = await pipeline(
           "object-detection",
-          "Xenova/yolos-tiny",
-          { device: "webgpu" }
+          "Xenova/yolos-tiny"
         );
+        console.log("Face detection model loaded successfully");
         
-        console.log("Loading emotion classification model...");
-        emotionClassifierRef.current = await pipeline(
-          "image-classification",
-          "Xenova/vit-base-patch16-224-in21k-facial-expression",
-          { device: "webgpu" }
-        );
-        
-        console.log("Models loaded successfully");
+        toast({
+          title: "Models Loaded",
+          description: "Face detection is ready!",
+        });
       } catch (error) {
         console.error("Model loading error:", error);
-        alert("Failed to load AI models. Please refresh and try again.");
+        toast({
+          title: "Model Loading Failed",
+          description: "Failed to load face detection model. Please refresh and try again.",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }
@@ -125,7 +127,7 @@ const FaceSentimentDetector = () => {
 
   const analyzeFrame = async () => {
     if (!videoRef.current || !canvasRef.current || !overlayCanvasRef.current) return;
-    if (!faceDetectorRef.current || !emotionClassifierRef.current) return;
+    if (!faceDetectorRef.current) return;
     if (videoRef.current.readyState !== 4) return;
 
     const video = videoRef.current;
@@ -164,11 +166,11 @@ const FaceSentimentDetector = () => {
         return;
       }
 
-      // Analyze emotion for each face
+      // Analyze emotion for each face (limit to 3 faces for performance)
       const faceResults: FaceDetection[] = [];
       
-      for (const detection of faceDetections.slice(0, 5)) { // Limit to 5 faces
-        const { box, score } = detection;
+      for (const detection of faceDetections.slice(0, 3)) {
+        const { box } = detection;
         
         // Extract face region
         const faceCanvas = document.createElement("canvas");
@@ -180,16 +182,31 @@ const FaceSentimentDetector = () => {
         const width = (box.xmax - box.xmin) * canvas.width;
         const height = (box.ymax - box.ymin) * canvas.height;
 
-        faceCanvas.width = width;
-        faceCanvas.height = height;
-        faceCtx.drawImage(canvas, x, y, width, height, 0, 0, width, height);
+        // Add padding to capture more facial context
+        const padding = 0.1;
+        const paddedX = Math.max(0, x - width * padding);
+        const paddedY = Math.max(0, y - height * padding);
+        const paddedWidth = Math.min(canvas.width - paddedX, width * (1 + 2 * padding));
+        const paddedHeight = Math.min(canvas.height - paddedY, height * (1 + 2 * padding));
+
+        faceCanvas.width = paddedWidth;
+        faceCanvas.height = paddedHeight;
+        faceCtx.drawImage(canvas, paddedX, paddedY, paddedWidth, paddedHeight, 0, 0, paddedWidth, paddedHeight);
 
         try {
-          const faceImageData = faceCanvas.toDataURL("image/jpeg", 0.8);
-          const emotions = await emotionClassifierRef.current(faceImageData);
+          const faceImageData = faceCanvas.toDataURL("image/jpeg", 0.7);
           
-          if (emotions && emotions.length > 0) {
-            const sentiment = mapEmotionToSentiment(emotions[0].label);
+          // Call edge function to analyze emotion with Lovable AI
+          const { data: emotionData, error } = await supabase.functions.invoke('analyze-face-emotion', {
+            body: { imageData: faceImageData }
+          });
+
+          if (error) {
+            console.error("Emotion analysis error:", error);
+            continue;
+          }
+
+          if (emotionData && emotionData.sentiment) {
             faceResults.push({
               box: {
                 xmin: x,
@@ -197,8 +214,8 @@ const FaceSentimentDetector = () => {
                 xmax: x + width,
                 ymax: y + height,
               },
-              sentiment,
-              confidence: emotions[0].score,
+              sentiment: emotionData.sentiment,
+              confidence: 0.85, // Default confidence for AI analysis
             });
           }
         } catch (error) {
