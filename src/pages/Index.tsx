@@ -4,6 +4,7 @@ import FileUpload from "@/components/FileUpload";
 import Dashboard from "@/components/Dashboard";
 import Chatbot from "@/components/Chatbot";
 import RealtimeAnalyzer from "@/components/RealtimeAnalyzer";
+import FaceSentimentDetector from "@/components/FaceSentimentDetector";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { analyzeSentimentLocal } from "@/utils/localSentimentAnalyzer";
@@ -101,7 +102,8 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Hero />
       <RealtimeAnalyzer />
-      <FileUpload 
+      <FaceSentimentDetector />
+      <FileUpload
         onAnalyzeLocal={handleAnalyzeLocal}
         onAnalyzeCloud={handleAnalyzeCloud}
         isAnalyzing={isAnalyzing}
