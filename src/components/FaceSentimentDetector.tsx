@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Camera, CameraOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,9 +26,11 @@ const FaceSentimentDetector = () => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [rateLimitCooldown, setRateLimitCooldown] = useState(false);
+  const [autoAnalysis, setAutoAnalysis] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const autoAnalysisRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -34,6 +38,43 @@ const FaceSentimentDetector = () => {
       stopCamera();
     };
   }, []);
+
+  // Handle auto-analysis toggle
+  useEffect(() => {
+    if (autoAnalysis && isActive && !rateLimitCooldown) {
+      // Start auto-analysis with 10 second interval
+      autoAnalysisRef.current = setInterval(() => {
+        if (!isAnalyzing && !rateLimitCooldown) {
+          analyzeFrame();
+        }
+      }, 10000);
+      
+      // Run first analysis after 2 seconds
+      setTimeout(() => {
+        if (!isAnalyzing && !rateLimitCooldown) {
+          analyzeFrame();
+        }
+      }, 2000);
+      
+      toast({
+        title: "Auto-Analysis Enabled",
+        description: "Analyzing your expression every 10 seconds",
+      });
+    } else {
+      // Clear interval when disabled
+      if (autoAnalysisRef.current) {
+        clearInterval(autoAnalysisRef.current);
+        autoAnalysisRef.current = null;
+      }
+    }
+    
+    return () => {
+      if (autoAnalysisRef.current) {
+        clearInterval(autoAnalysisRef.current);
+        autoAnalysisRef.current = null;
+      }
+    };
+  }, [autoAnalysis, isActive]);
 
   const startCamera = async () => {
     try {
@@ -71,6 +112,11 @@ const FaceSentimentDetector = () => {
   };
 
   const stopCamera = () => {
+    if (autoAnalysisRef.current) {
+      clearInterval(autoAnalysisRef.current);
+      autoAnalysisRef.current = null;
+    }
+    
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
@@ -81,6 +127,7 @@ const FaceSentimentDetector = () => {
     setIsLoading(false);
     setIsAnalyzing(false);
     setRateLimitCooldown(false);
+    setAutoAnalysis(false);
   };
 
   const analyzeFrame = async () => {
@@ -363,9 +410,24 @@ const FaceSentimentDetector = () => {
             )}
 
             {isActive && (
-              <div className="text-center space-y-3">
+              <div className="text-center space-y-4">
+                {/* Auto-analysis toggle */}
+                <div className="flex items-center justify-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <Switch
+                    id="auto-analysis"
+                    checked={autoAnalysis}
+                    onCheckedChange={setAutoAnalysis}
+                    disabled={rateLimitCooldown}
+                  />
+                  <Label htmlFor="auto-analysis" className="text-sm font-medium cursor-pointer">
+                    Auto-analyze every 10 seconds
+                  </Label>
+                </div>
+                
                 <p className="text-sm font-medium text-muted-foreground">
-                  Click the button above to analyze your expression using AI
+                  {autoAnalysis 
+                    ? "Auto-analyzing your expression every 10 seconds" 
+                    : "Click the button above to analyze your expression"}
                 </p>
                 <div className="flex items-center justify-center gap-6 text-sm">
                   <div className="flex items-center gap-2">
