@@ -12,3 +12,6 @@ verify_jwt = false
 
 [functions.send-feedback]
 verify_jwt = false
+
+[functions.analyze-face-emotion]
+verify_jwt = false
