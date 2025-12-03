@@ -23,10 +23,10 @@ const FaceSentimentDetector = () => {
   const [faces, setFaces] = useState<FaceDetection[]>([]);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [rateLimitCooldown, setRateLimitCooldown] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
-  const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -50,7 +50,6 @@ const FaceSentimentDetector = () => {
           if (videoRef.current) {
             videoRef.current.play();
             setIsLoading(false);
-            startAnalysis();
           }
         };
       }
@@ -58,7 +57,7 @@ const FaceSentimentDetector = () => {
       
       toast({
         title: "Camera Started",
-        description: "Face sentiment detection is now active!",
+        description: "Click 'Analyze My Expression' to detect your emotion!",
       });
     } catch (error) {
       console.error("Camera access error:", error);
@@ -72,11 +71,6 @@ const FaceSentimentDetector = () => {
   };
 
   const stopCamera = () => {
-    if (analysisIntervalRef.current) {
-      clearInterval(analysisIntervalRef.current);
-      analysisIntervalRef.current = null;
-    }
-    
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
@@ -86,22 +80,13 @@ const FaceSentimentDetector = () => {
     setFaces([]);
     setIsLoading(false);
     setIsAnalyzing(false);
-  };
-
-  const startAnalysis = () => {
-    // Run analysis every 5 seconds to avoid API rate limits
-    analysisIntervalRef.current = setInterval(() => {
-      analyzeFrame();
-    }, 5000);
-    
-    // Run first analysis after 1 second delay
-    setTimeout(() => analyzeFrame(), 1000);
+    setRateLimitCooldown(false);
   };
 
   const analyzeFrame = async () => {
     if (!videoRef.current || !canvasRef.current || !overlayCanvasRef.current) return;
     if (videoRef.current.readyState !== 4) return;
-    if (isAnalyzing) return; // Prevent concurrent analysis
+    if (isAnalyzing || rateLimitCooldown) return;
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -138,11 +123,14 @@ const FaceSentimentDetector = () => {
       if (error || emotionData?.rateLimited || emotionData?.paymentRequired) {
         console.error("Edge function error:", error || emotionData?.error);
         if (emotionData?.rateLimited) {
+          setRateLimitCooldown(true);
           toast({
             title: "Rate Limited",
-            description: "Please wait a moment before the next analysis.",
+            description: "Please wait 30 seconds before analyzing again.",
             variant: "destructive",
           });
+          // Cooldown for 30 seconds
+          setTimeout(() => setRateLimitCooldown(false), 30000);
         }
         setIsAnalyzing(false);
         return;
@@ -358,9 +346,26 @@ const FaceSentimentDetector = () => {
             </Button>
 
             {isActive && (
+              <Button
+                onClick={analyzeFrame}
+                disabled={isAnalyzing || rateLimitCooldown}
+                size="lg"
+                className="w-full max-w-md bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+              >
+                {isAnalyzing ? (
+                  "🔍 Analyzing..."
+                ) : rateLimitCooldown ? (
+                  "⏳ Please wait (rate limited)..."
+                ) : (
+                  "✨ Analyze My Expression"
+                )}
+              </Button>
+            )}
+
+            {isActive && (
               <div className="text-center space-y-3">
                 <p className="text-sm font-medium text-muted-foreground">
-                  Analyzing your expression every 2 seconds using AI
+                  Click the button above to analyze your expression using AI
                 </p>
                 <div className="flex items-center justify-center gap-6 text-sm">
                   <div className="flex items-center gap-2">
