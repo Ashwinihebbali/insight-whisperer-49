@@ -3,7 +3,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Camera, CameraOff } from "lucide-react";
 import { motion } from "framer-motion";
-import { pipeline } from "@huggingface/transformers";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -14,7 +13,7 @@ interface FaceDetection {
     xmax: number;
     ymax: number;
   };
-  sentiment: "happy" | "sad" | "neutral";
+  sentiment: "happy" | "sad" | "neutral" | "analyzing";
   confidence: number;
 }
 
@@ -23,11 +22,11 @@ const FaceSentimentDetector = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [faces, setFaces] = useState<FaceDetection[]>([]);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
-  const faceDetectorRef = useRef<any>(null);
-  const animationFrameRef = useRef<number | null>(null);
+  const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -36,41 +35,12 @@ const FaceSentimentDetector = () => {
     };
   }, []);
 
-  const initModels = async () => {
-    if (!faceDetectorRef.current) {
-      setIsLoading(true);
-      try {
-        console.log("Loading face detection model...");
-        faceDetectorRef.current = await pipeline(
-          "object-detection",
-          "Xenova/yolos-tiny"
-        );
-        console.log("Face detection model loaded successfully");
-        
-        toast({
-          title: "Models Loaded",
-          description: "Face detection is ready!",
-        });
-      } catch (error) {
-        console.error("Model loading error:", error);
-        toast({
-          title: "Model Loading Failed",
-          description: "Failed to load face detection model. Please refresh and try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  };
-
   const startCamera = async () => {
     try {
       setIsLoading(true);
-      await initModels();
       
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720, facingMode: "user" }
+        video: { width: 640, height: 480, facingMode: "user" }
       });
       
       setStream(mediaStream);
@@ -79,22 +49,32 @@ const FaceSentimentDetector = () => {
         videoRef.current.onloadedmetadata = () => {
           if (videoRef.current) {
             videoRef.current.play();
+            setIsLoading(false);
             startAnalysis();
           }
         };
       }
       setIsActive(true);
+      
+      toast({
+        title: "Camera Started",
+        description: "Face sentiment detection is now active!",
+      });
     } catch (error) {
       console.error("Camera access error:", error);
-      alert("Unable to access camera. Please check permissions.");
+      toast({
+        title: "Camera Error",
+        description: "Unable to access camera. Please check permissions.",
+        variant: "destructive",
+      });
       setIsLoading(false);
     }
   };
 
   const stopCamera = () => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
+    if (analysisIntervalRef.current) {
+      clearInterval(analysisIntervalRef.current);
+      analysisIntervalRef.current = null;
     }
     
     if (stream) {
@@ -105,30 +85,23 @@ const FaceSentimentDetector = () => {
     setIsActive(false);
     setFaces([]);
     setIsLoading(false);
+    setIsAnalyzing(false);
   };
 
   const startAnalysis = () => {
-    const detectAndAnalyze = async () => {
-      await analyzeFrame();
-      animationFrameRef.current = requestAnimationFrame(detectAndAnalyze);
-    };
-    detectAndAnalyze();
-  };
-
-  const mapEmotionToSentiment = (label: string): "happy" | "sad" | "neutral" => {
-    const lowerLabel = label.toLowerCase();
-    if (lowerLabel.includes("happy") || lowerLabel.includes("joy") || lowerLabel.includes("smile")) {
-      return "happy";
-    } else if (lowerLabel.includes("sad") || lowerLabel.includes("angry") || lowerLabel.includes("fear") || lowerLabel.includes("disgust")) {
-      return "sad";
-    }
-    return "neutral";
+    // Run analysis every 2 seconds to avoid API overload
+    analysisIntervalRef.current = setInterval(() => {
+      analyzeFrame();
+    }, 2000);
+    
+    // Run first analysis immediately
+    analyzeFrame();
   };
 
   const analyzeFrame = async () => {
     if (!videoRef.current || !canvasRef.current || !overlayCanvasRef.current) return;
-    if (!faceDetectorRef.current) return;
     if (videoRef.current.readyState !== 4) return;
+    if (isAnalyzing) return; // Prevent concurrent analysis
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -137,6 +110,8 @@ const FaceSentimentDetector = () => {
     const overlayCtx = overlayCanvas.getContext("2d");
     
     if (!ctx || !overlayCtx) return;
+
+    setIsAnalyzing(true);
 
     // Set canvas sizes
     canvas.width = video.videoWidth;
@@ -148,86 +123,51 @@ const FaceSentimentDetector = () => {
     ctx.drawImage(video, 0, 0);
 
     try {
-      // Detect faces
+      // Get the full frame as image data
       const imageData = canvas.toDataURL("image/jpeg", 0.8);
-      const detections = await faceDetectorRef.current(imageData, {
-        threshold: 0.5,
-        percentage: true,
+      
+      console.log("Sending image to analyze-face-emotion...");
+      
+      // Call edge function to analyze the whole frame
+      const { data: emotionData, error } = await supabase.functions.invoke('analyze-face-emotion', {
+        body: { imageData }
       });
 
-      // Filter for person detections
-      const faceDetections = detections.filter((d: any) => 
-        d.label === "person" && d.score > 0.6
-      );
+      console.log("Response from edge function:", emotionData, error);
 
-      if (faceDetections.length === 0) {
-        setFaces([]);
-        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+      if (error) {
+        console.error("Edge function error:", error);
+        setIsAnalyzing(false);
         return;
       }
 
-      // Analyze emotion for each face (limit to 3 faces for performance)
-      const faceResults: FaceDetection[] = [];
-      
-      for (const detection of faceDetections.slice(0, 3)) {
-        const { box } = detection;
+      if (emotionData && emotionData.sentiment) {
+        // Create a face detection result for the center of the frame
+        // Since we're analyzing the whole frame, we assume the face is centered
+        const faceResult: FaceDetection = {
+          box: {
+            xmin: canvas.width * 0.25,
+            ymin: canvas.height * 0.1,
+            xmax: canvas.width * 0.75,
+            ymax: canvas.height * 0.9,
+          },
+          sentiment: emotionData.sentiment as "happy" | "sad" | "neutral",
+          confidence: 0.85,
+        };
+
+        setFaces([faceResult]);
+        drawFaceBoxes(overlayCtx, [faceResult], canvas.width, canvas.height);
         
-        // Extract face region
-        const faceCanvas = document.createElement("canvas");
-        const faceCtx = faceCanvas.getContext("2d");
-        if (!faceCtx) continue;
-
-        const x = box.xmin * canvas.width;
-        const y = box.ymin * canvas.height;
-        const width = (box.xmax - box.xmin) * canvas.width;
-        const height = (box.ymax - box.ymin) * canvas.height;
-
-        // Add padding to capture more facial context
-        const padding = 0.1;
-        const paddedX = Math.max(0, x - width * padding);
-        const paddedY = Math.max(0, y - height * padding);
-        const paddedWidth = Math.min(canvas.width - paddedX, width * (1 + 2 * padding));
-        const paddedHeight = Math.min(canvas.height - paddedY, height * (1 + 2 * padding));
-
-        faceCanvas.width = paddedWidth;
-        faceCanvas.height = paddedHeight;
-        faceCtx.drawImage(canvas, paddedX, paddedY, paddedWidth, paddedHeight, 0, 0, paddedWidth, paddedHeight);
-
-        try {
-          const faceImageData = faceCanvas.toDataURL("image/jpeg", 0.7);
-          
-          // Call edge function to analyze emotion with Lovable AI
-          const { data: emotionData, error } = await supabase.functions.invoke('analyze-face-emotion', {
-            body: { imageData: faceImageData }
-          });
-
-          if (error) {
-            console.error("Emotion analysis error:", error);
-            continue;
-          }
-
-          if (emotionData && emotionData.sentiment) {
-            faceResults.push({
-              box: {
-                xmin: x,
-                ymin: y,
-                xmax: x + width,
-                ymax: y + height,
-              },
-              sentiment: emotionData.sentiment,
-              confidence: 0.85, // Default confidence for AI analysis
-            });
-          }
-        } catch (error) {
-          console.error("Emotion classification error:", error);
-        }
+        console.log("Detected sentiment:", emotionData.sentiment);
+      } else {
+        setFaces([]);
+        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
       }
 
-      setFaces(faceResults);
-      drawFaceBoxes(overlayCtx, faceResults, canvas.width, canvas.height);
-
     } catch (error) {
-      console.error("Detection error:", error);
+      console.error("Analysis error:", error);
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -239,12 +179,11 @@ const FaceSentimentDetector = () => {
   ) => {
     ctx.clearRect(0, 0, width, height);
     ctx.lineWidth = 4;
-    ctx.font = "bold 24px Arial";
 
-    faces.forEach((face, index) => {
+    faces.forEach((face) => {
       const { box, sentiment, confidence } = face;
       
-      // Set color based on sentiment
+      // Set color and labels based on sentiment
       let color = "#FFC107"; // neutral - yellow
       let emoji = "😐";
       let labelText = "NEUTRAL";
@@ -257,37 +196,45 @@ const FaceSentimentDetector = () => {
         color = "#F44336"; // red
         emoji = "😢";
         labelText = "SAD";
+      } else if (sentiment === "analyzing") {
+        color = "#2196F3"; // blue
+        emoji = "🔍";
+        labelText = "ANALYZING...";
       }
 
       ctx.strokeStyle = color;
       ctx.fillStyle = color;
 
-      // Draw rectangle around face
+      // Draw rectangle around face area
       const boxWidth = box.xmax - box.xmin;
       const boxHeight = box.ymax - box.ymin;
       ctx.strokeRect(box.xmin, box.ymin, boxWidth, boxHeight);
 
       // Draw corner accents for better visibility
-      const cornerLength = 20;
+      const cornerLength = 30;
       ctx.lineWidth = 6;
+      
       // Top-left corner
       ctx.beginPath();
       ctx.moveTo(box.xmin, box.ymin + cornerLength);
       ctx.lineTo(box.xmin, box.ymin);
       ctx.lineTo(box.xmin + cornerLength, box.ymin);
       ctx.stroke();
+      
       // Top-right corner
       ctx.beginPath();
       ctx.moveTo(box.xmax - cornerLength, box.ymin);
       ctx.lineTo(box.xmax, box.ymin);
       ctx.lineTo(box.xmax, box.ymin + cornerLength);
       ctx.stroke();
+      
       // Bottom-left corner
       ctx.beginPath();
       ctx.moveTo(box.xmin, box.ymax - cornerLength);
       ctx.lineTo(box.xmin, box.ymax);
       ctx.lineTo(box.xmin + cornerLength, box.ymax);
       ctx.stroke();
+      
       // Bottom-right corner
       ctx.beginPath();
       ctx.moveTo(box.xmax - cornerLength, box.ymax);
@@ -297,40 +244,40 @@ const FaceSentimentDetector = () => {
 
       ctx.lineWidth = 4;
 
-      // Prepare label with emoji and text
+      // Draw large prominent label at the top
       const fullLabel = `${emoji} ${labelText}`;
-      const confidenceLabel = `${Math.round(confidence * 100)}%`;
+      const confidenceLabel = `Confidence: ${Math.round(confidence * 100)}%`;
       
-      ctx.font = "bold 24px Arial";
+      ctx.font = "bold 32px Arial";
       const textMetrics = ctx.measureText(fullLabel);
       const textWidth = textMetrics.width;
       
-      ctx.font = "16px Arial";
+      ctx.font = "18px Arial";
       const confMetrics = ctx.measureText(confidenceLabel);
       const maxWidth = Math.max(textWidth, confMetrics.width);
       
-      const labelHeight = 55;
-      const padding = 12;
+      const labelHeight = 70;
+      const padding = 16;
+      const labelX = (box.xmin + box.xmax) / 2 - (maxWidth + padding * 2) / 2;
       
-      // Draw label background with rounded corners effect
+      // Draw label background
       ctx.fillStyle = color;
       ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-      ctx.shadowBlur = 10;
-      ctx.fillRect(box.xmin, box.ymin - labelHeight - 8, maxWidth + padding * 2, labelHeight);
+      ctx.shadowBlur = 15;
+      ctx.fillRect(labelX, box.ymin - labelHeight - 12, maxWidth + padding * 2, labelHeight);
       ctx.shadowBlur = 0;
       
       // Draw label text
       ctx.fillStyle = "#FFFFFF";
-      ctx.font = "bold 24px Arial";
-      ctx.fillText(fullLabel, box.xmin + padding, box.ymin - labelHeight + 28);
+      ctx.font = "bold 32px Arial";
+      ctx.fillText(fullLabel, labelX + padding, box.ymin - labelHeight + 35);
       
       // Draw confidence percentage
-      ctx.font = "14px Arial";
+      ctx.font = "16px Arial";
       ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-      ctx.fillText(confidenceLabel, box.xmin + padding, box.ymin - labelHeight + 48);
+      ctx.fillText(confidenceLabel, labelX + padding, box.ymin - labelHeight + 58);
     });
   };
-
 
   return (
     <section className="py-20 px-4">
@@ -370,10 +317,10 @@ const FaceSentimentDetector = () => {
                 </div>
               )}
               
-              {isActive && faces.length > 0 && (
-                <div className="absolute top-4 left-4 bg-background/80 backdrop-blur-sm px-4 py-2 rounded-lg border-2 border-primary">
+              {isActive && (
+                <div className="absolute top-4 left-4 bg-background/90 backdrop-blur-sm px-4 py-2 rounded-lg border-2 border-primary">
                   <p className="text-sm font-semibold">
-                    {faces.length} {faces.length === 1 ? "face" : "faces"} detected
+                    {isAnalyzing ? "🔍 Analyzing..." : faces.length > 0 ? `✅ ${faces[0].sentiment.toUpperCase()} detected` : "Waiting for face..."}
                   </p>
                 </div>
               )}
@@ -389,7 +336,7 @@ const FaceSentimentDetector = () => {
               variant={isActive ? "destructive" : "default"}
             >
               {isLoading ? (
-                "Loading model..."
+                "Starting camera..."
               ) : isActive ? (
                 <>
                   <CameraOff className="mr-2 h-5 w-5" />
@@ -406,7 +353,7 @@ const FaceSentimentDetector = () => {
             {isActive && (
               <div className="text-center space-y-3">
                 <p className="text-sm font-medium text-muted-foreground">
-                  Real-time emotion detection with labeled faces
+                  Analyzing your expression every 2 seconds using AI
                 </p>
                 <div className="flex items-center justify-center gap-6 text-sm">
                   <div className="flex items-center gap-2">
@@ -422,9 +369,20 @@ const FaceSentimentDetector = () => {
                     <span className="font-medium">😐 Neutral</span>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground/80">
-                  Each face shows its emotion label with confidence percentage
-                </p>
+                
+                {faces.length > 0 && (
+                  <motion.div 
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="mt-4 p-4 rounded-lg bg-primary/10 border border-primary/30"
+                  >
+                    <p className="text-2xl font-bold">
+                      {faces[0].sentiment === "happy" && "😊 You look HAPPY!"}
+                      {faces[0].sentiment === "sad" && "😢 You look SAD"}
+                      {faces[0].sentiment === "neutral" && "😐 You look NEUTRAL"}
+                    </p>
+                  </motion.div>
+                )}
               </div>
             )}
           </div>
