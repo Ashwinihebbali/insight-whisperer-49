@@ -89,13 +89,13 @@ const FaceSentimentDetector = () => {
   };
 
   const startAnalysis = () => {
-    // Run analysis every 2 seconds to avoid API overload
+    // Run analysis every 5 seconds to avoid API rate limits
     analysisIntervalRef.current = setInterval(() => {
       analyzeFrame();
-    }, 2000);
+    }, 5000);
     
-    // Run first analysis immediately
-    analyzeFrame();
+    // Run first analysis after 1 second delay
+    setTimeout(() => analyzeFrame(), 1000);
   };
 
   const analyzeFrame = async () => {
@@ -135,8 +135,15 @@ const FaceSentimentDetector = () => {
 
       console.log("Response from edge function:", emotionData, error);
 
-      if (error) {
-        console.error("Edge function error:", error);
+      if (error || emotionData?.rateLimited || emotionData?.paymentRequired) {
+        console.error("Edge function error:", error || emotionData?.error);
+        if (emotionData?.rateLimited) {
+          toast({
+            title: "Rate Limited",
+            description: "Please wait a moment before the next analysis.",
+            variant: "destructive",
+          });
+        }
         setIsAnalyzing(false);
         return;
       }
