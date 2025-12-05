@@ -4,9 +4,10 @@ let sentimentAnalyzer: any = null;
 
 export async function initializeSentimentAnalyzer() {
   if (!sentimentAnalyzer) {
+    // Using a 3-class model that supports positive, negative, AND neutral
     sentimentAnalyzer = await pipeline(
       "sentiment-analysis",
-      "Xenova/distilbert-base-uncased-finetuned-sst-2-english"
+      "Xenova/twitter-roberta-base-sentiment-latest"
     );
   }
   return sentimentAnalyzer;
@@ -23,18 +24,17 @@ export async function analyzeSentimentLocal(
     const comment = comments[i];
     const result = await analyzer(comment);
     
-    // Map the result to our sentiment format using confidence threshold
+    // Map the result to our sentiment format
+    // This model directly outputs: negative, neutral, positive
     const label = result[0].label.toLowerCase();
-    const score = result[0].score;
     
-    // For binary classifiers, neutral = low confidence (score < 0.75)
-    // High confidence (>= 0.75) uses the model's classification
-    // Lower confidence indicates uncertainty -> neutral
     let sentiment: "positive" | "negative" | "neutral";
-    if (score < 0.75) {
-      sentiment = "neutral";
+    if (label === "positive") {
+      sentiment = "positive";
+    } else if (label === "negative") {
+      sentiment = "negative";
     } else {
-      sentiment = label === "positive" ? "positive" : "negative";
+      sentiment = "neutral";
     }
     
     const analysisResult = { comment, sentiment };
