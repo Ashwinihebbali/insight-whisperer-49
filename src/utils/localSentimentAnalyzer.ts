@@ -27,11 +27,11 @@ export async function analyzeSentimentLocal(
     const label = result[0].label.toLowerCase();
     const score = result[0].score;
     
-    // For binary classifiers, neutral = model uncertainty (score close to 0.5)
-    // If score is between 0.4 and 0.6, the model is uncertain -> neutral
-    // Otherwise, use the model's classification
+    // For binary classifiers, neutral = low confidence (score < 0.75)
+    // High confidence (>= 0.75) uses the model's classification
+    // Lower confidence indicates uncertainty -> neutral
     let sentiment: "positive" | "negative" | "neutral";
-    if (score >= 0.4 && score <= 0.6) {
+    if (score < 0.75) {
       sentiment = "neutral";
     } else {
       sentiment = label === "positive" ? "positive" : "negative";
