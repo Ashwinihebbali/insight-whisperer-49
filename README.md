@@ -23,7 +23,7 @@ A comprehensive AI-powered sentiment analysis platform that analyzes emotions fr
 - **Flexible Analysis**: Manual button or auto-analysis (10-second intervals)
 - **Visual Feedback**: Bounding boxes with emoji indicators and confidence scores
 
-🚀 **[Try the Live Demo]([https://dhtayekuffroserbqrqr.lovableproject.com](https://nsight-whisperer-49.onrender.com/))** — Experience real-time sentiment analysis for text and facial emotions!
+🚀 **[Try the Live Demo](https://nsight-whisperer-49.onrender.com/)** — Experience real-time sentiment analysis for text and facial emotions!
 
 ### 📊 Interactive Dashboard
 - **Pie Chart**: Overall sentiment distribution
