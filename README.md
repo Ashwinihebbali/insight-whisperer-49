@@ -200,7 +200,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
-
+-Special thanks to Dr. Victor Ikechukwu for his invaluable guidance and support throughout the development of this project. Explore their work: [Victor-Ikechukwu](https://github.com/Victor-Ikechukwu).
 - [Lovable](https://lovable.dev) - AI-powered development platform
 - [Hugging Face](https://huggingface.co) - Transformers library
 - [Supabase](https://supabase.com) - Backend infrastructure
