@@ -207,6 +207,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Shadcn/UI](https://ui.shadcn.com) - Beautiful components
 - [Google Gemini](https://deepmind.google/technologies/gemini/) - Vision AI
 
+## 💖 Gratitude
+
+Special thanks to my teammate for the collaboration and support on this project:
+
+- **Geethanjali M** - [GitHub](https://github.com/GeethanjaliM25) | [LinkedIn](https://www.linkedin.com/in/geethanjalimkarnataka)
+
 ---
 
 <p align="center">
