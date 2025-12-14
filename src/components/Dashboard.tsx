@@ -12,7 +12,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import html2canvas from "html2canvas";
 
 interface SentimentResult {
@@ -255,6 +255,32 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
       )
     : null;
 
+  // Catchy processing messages
+  const processingMessages = [
+    "🔮 AI magic in progress... Your insights are brewing!",
+    "🧠 Teaching our AI to read emotions...",
+    "✨ Transforming words into wisdom...",
+    "🚀 Rocket-fast analysis happening right now!",
+    "💡 Uncovering hidden sentiments in your data...",
+    "🎯 Precision analysis: Every word counts!",
+    "🌟 Almost there! Great things take a moment...",
+    "📊 Building your personalized insights dashboard...",
+    "🔍 Deep diving into your dataset...",
+    "⚡ Lightning-speed processing in action!",
+  ];
+
+  const [messageIndex, setMessageIndex] = useState(0);
+
+  // Rotate messages every 3 seconds during analysis
+  useEffect(() => {
+    if (isAnalyzing) {
+      const interval = setInterval(() => {
+        setMessageIndex(prev => (prev + 1) % processingMessages.length);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [isAnalyzing, processingMessages.length]);
+
   return (
     <section className="py-12 px-4 bg-secondary/20">
       <div className="container mx-auto max-w-7xl">
@@ -276,6 +302,45 @@ const Dashboard = ({ results, onReset, isAnalyzing, currentAnalysis }: Dashboard
               Download Complete Report
             </Button>
           </div>
+
+          {/* Catchy Processing Banner */}
+          {isAnalyzing && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mb-8"
+            >
+              <Card className="shadow-xl bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 border-2 border-primary/30 overflow-hidden relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-accent/10 to-primary/5 animate-pulse" />
+                <CardContent className="py-8 relative">
+                  <div className="text-center">
+                    <motion.div
+                      key={messageIndex}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-4"
+                    >
+                      {processingMessages[messageIndex]}
+                    </motion.div>
+                    <div className="flex items-center justify-center gap-4 text-muted-foreground">
+                      <div className="flex gap-1">
+                        <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-2 h-2 bg-accent rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                      <span className="text-lg font-medium">
+                        Processing {safeResults.length} of {safeResults.length + (currentAnalysis ? 1 : 0)}+ comments
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-3">
+                      Sit back and relax — your comprehensive analysis is on its way! ☕
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
           {/* Real-Time Analysis Feed */}
           {isAnalyzing && (
