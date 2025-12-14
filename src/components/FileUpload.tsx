@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Upload, FileText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import * as XLSX from "xlsx";
 
 interface FileUploadProps {
   onAnalyzeLocal: (comments: string[]) => void;
@@ -11,11 +12,25 @@ interface FileUploadProps {
   analysisProgress: { current: number; total: number };
 }
 
+const SUPPORTED_FORMATS = [".csv", ".xlsx", ".xls", ".json", ".txt"];
+const SUPPORTED_MIME_TYPES = [
+  "text/csv",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+  "application/json",
+  "text/plain"
+];
+
 const FileUpload = ({ onAnalyzeLocal, onAnalyzeCloud, isAnalyzing, analysisProgress }: FileUploadProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [useLocalMode, setUseLocalMode] = useState(true);
   const { toast } = useToast();
+
+  const isValidFile = (file: File): boolean => {
+    const extension = "." + file.name.split(".").pop()?.toLowerCase();
+    return SUPPORTED_FORMATS.includes(extension) || SUPPORTED_MIME_TYPES.includes(file.type);
+  };
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -32,12 +47,12 @@ const FileUpload = ({ onAnalyzeLocal, onAnalyzeCloud, isAnalyzing, analysisProgr
     setIsDragging(false);
     
     const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile && (droppedFile.type === "text/csv" || droppedFile.name.endsWith(".csv"))) {
+    if (droppedFile && isValidFile(droppedFile)) {
       setFile(droppedFile);
     } else {
       toast({
         title: "Invalid file type",
-        description: "Please upload a CSV file",
+        description: "Please upload CSV, Excel, JSON, or TXT file",
         variant: "destructive",
       });
     }
@@ -45,8 +60,14 @@ const FileUpload = ({ onAnalyzeLocal, onAnalyzeCloud, isAnalyzing, analysisProgr
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
+    if (selectedFile && isValidFile(selectedFile)) {
       setFile(selectedFile);
+    } else if (selectedFile) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload CSV, Excel, JSON, or TXT file",
+        variant: "destructive",
+      });
     }
   };
 
@@ -56,7 +77,6 @@ const FileUpload = ({ onAnalyzeLocal, onAnalyzeCloud, isAnalyzing, analysisProgr
       reader.onload = (e) => {
         const text = e.target?.result as string;
         const lines = text.split('\n').filter(line => line.trim());
-        // Assume first line is header, rest are comments
         const comments = lines.slice(1).map(line => line.trim()).filter(Boolean);
         resolve(comments);
       };
@@ -65,15 +85,87 @@ const FileUpload = ({ onAnalyzeLocal, onAnalyzeCloud, isAnalyzing, analysisProgr
     });
   };
 
+  const parseExcel = async (file: File): Promise<string[]> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = e.target?.result;
+          const workbook = XLSX.read(data, { type: "array" });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as string[][];
+          // Skip header row, flatten and filter
+          const comments = jsonData.slice(1).flat().map(cell => String(cell || "").trim()).filter(Boolean);
+          resolve(comments);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  const parseJSON = async (file: File): Promise<string[]> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const json = JSON.parse(e.target?.result as string);
+          let comments: string[] = [];
+          if (Array.isArray(json)) {
+            comments = json.map(item => typeof item === "string" ? item : Object.values(item).join(" ")).filter(Boolean);
+          } else if (typeof json === "object") {
+            comments = Object.values(json).flat().map(v => String(v)).filter(Boolean);
+          }
+          resolve(comments);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
+  };
+
+  const parseTXT = async (file: File): Promise<string[]> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        const comments = text.split('\n').map(line => line.trim()).filter(Boolean);
+        resolve(comments);
+      };
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
+  };
+
+  const parseFile = async (file: File): Promise<string[]> => {
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    switch (extension) {
+      case "xlsx":
+      case "xls":
+        return parseExcel(file);
+      case "json":
+        return parseJSON(file);
+      case "txt":
+        return parseTXT(file);
+      case "csv":
+      default:
+        return parseCSV(file);
+    }
+  };
+
   const handleAnalyze = async () => {
     if (!file) return;
 
     try {
-      const comments = await parseCSV(file);
+      const comments = await parseFile(file);
       if (comments.length === 0) {
         toast({
           title: "No data found",
-          description: "The CSV file appears to be empty",
+          description: "The file appears to be empty",
           variant: "destructive",
         });
         return;
@@ -86,7 +178,7 @@ const FileUpload = ({ onAnalyzeLocal, onAnalyzeCloud, isAnalyzing, analysisProgr
     } catch (error) {
       toast({
         title: "Error parsing file",
-        description: "Could not read the CSV file",
+        description: "Could not read the file. Please check the format.",
         variant: "destructive",
       });
     }
@@ -136,7 +228,7 @@ const FileUpload = ({ onAnalyzeLocal, onAnalyzeCloud, isAnalyzing, analysisProgr
           >
             <input
               type="file"
-              accept=".csv"
+              accept=".csv,.xlsx,.xls,.json,.txt"
               onChange={handleFileSelect}
               className="hidden"
               id="file-upload"
@@ -146,10 +238,13 @@ const FileUpload = ({ onAnalyzeLocal, onAnalyzeCloud, isAnalyzing, analysisProgr
             <label htmlFor="file-upload" className="cursor-pointer">
               <Upload className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
               <p className="text-xl font-semibold mb-2">
-                {file ? file.name : "Drop your CSV file here"}
+                {file ? file.name : "Drop your dataset file here"}
               </p>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground mb-2">
                 or click to browse
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Supported: CSV, Excel (.xlsx, .xls), JSON, TXT
               </p>
             </label>
           </motion.div>
