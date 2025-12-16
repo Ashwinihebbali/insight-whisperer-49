@@ -214,6 +214,3 @@ Special thanks to my teammate for the collaboration and support on this project:
 
 ---
 
-<p align="center">
-  Built with ❤️ using <a href="https://lovable.dev">Lovable</a>
-</p>
