@@ -33,7 +33,7 @@ A comprehensive AI-powered sentiment analysis platform that analyzes emotions fr
 - **Real-Time Feed**: Live analysis progress during processing
 - **PDF Export**: Download complete reports with visualizations
 
-### 🤖 AI Chatbot
+### 🤖 AI chatbot
 - Conversational AI assistant for sentiment-related queries
 - Powered by Lovable AI Gateway
 
