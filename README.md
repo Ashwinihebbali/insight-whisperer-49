@@ -1,4 +1,4 @@
-# 🎭 Sentiment Analysis Platform
+# 🎭 Sentiment Analysis platform
 
 A comprehensive AI-powered sentiment analysis platform that analyzes emotions from both text data and facial expressions in real-time.
 
