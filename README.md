@@ -142,7 +142,7 @@ A comprehensive AI-powered sentiment analysis platform that analyzes emotions fr
 2. Select a CSV or Excel file with a column containing comments
 3. Choose between Local (browser) or Cloud analysis
 4. View results in the interactive dashboard
-5. Export results as PDF
+5. Export results as PDF.
 
 ### Face Sentiment Detection
 1. Scroll to "Real-Time Face Sentiment Detection"
