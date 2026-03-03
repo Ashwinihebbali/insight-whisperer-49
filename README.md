@@ -16,7 +16,7 @@ A comprehensive AI-powered sentiment analysis platform that analyzes emotions fr
 - **Classification**: Positive, Negative, and Neutral sentiment detection
 - **Confidence Scoring**: Comments with <70% confidence marked as Neutral
 
-### 😊 Real-Time Face Sentiment Detection
+### 😊Real-Time Face Sentiment Detection
 - **Webcam Integration**: Live camera feed for facial analysis
 - **AI Vision**: Powered by Google Gemini 2.5 Flash
 - **Emotion Detection**: Classifies faces as Happy, Sad, or Neutral
