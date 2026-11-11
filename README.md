@@ -1,7 +1,7 @@
 # 🎭 Sentiment Analysis platform
 
 A comprehensive AI-powered sentiment analysis platform that analyzes emotions from both text data and facial expressions in real-time.
-
+ 
 ![Sentiment Analysis](https://img.shields.io/badge/AI-Sentiment%20Analysis-blue)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript)
